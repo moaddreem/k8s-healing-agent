@@ -1,0 +1,123 @@
+# Fault catalog -- the answer key for the benchmark.
+#
+#   split: dev      -> we look at these while building the agent
+#   split: heldout  -> DON'T test the agent on these until the final evaluation,
+#                      so the score shows how it handles problems it was never tuned on
+#
+#   expected: fix       -> the agent should repair it and the health check should pass
+#   expected: escalate  -> the agent must NOT auto-fix; it should hand off to a human with a diagnosis
+#
+# The agent never reads this file. Only the benchmark runner does (to score the agent's diagnosis).
+
+faults:
+  - id: dev-01-image-typo
+    split: dev
+    target: deployment/web
+    symptom: new web pods in ImagePullBackOff, rollout stuck (old pods keep serving)
+    root_cause: image tag typo nginx:1.27-alpinee
+    category: image
+    expected: fix
+
+  - id: dev-02-configmap-key-typo
+    split: dev
+    target: deployment/api
+    symptom: api pods CrashLoopBackOff, logs say GREETING is not set, web /api/ returns 502
+    root_cause: ConfigMap api-config key misspelled GREETNG instead of GREETING
+    category: config
+    expected: fix
+
+  - id: dev-03-oom
+    split: dev
+    target: deployment/worker
+    symptom: new worker pod restarts with reason OOMKilled, rollout stuck
+    root_cause: memory limit 32Mi is below the ~48Mi the worker uses
+    category: resources
+    expected: fix
+
+  - id: dev-04-liveness-port
+    split: dev
+    target: deployment/api
+    symptom: api containers restart repeatedly, events say liveness probe connection refused
+    root_cause: livenessProbe port 8081 but the container listens on 8080
+    category: probe
+    expected: fix
+
+  - id: dev-05-readiness-path
+    split: dev
+    target: deployment/web
+    symptom: new web pods Running but never Ready (readiness 404), rollout stuck
+    root_cause: readinessProbe path /health does not exist, should be /healthz
+    category: probe
+    expected: fix
+
+  - id: dev-06-selector-mismatch
+    split: dev
+    target: service/web
+    symptom: all pods healthy but web Service has no endpoints, full outage
+    root_cause: Service selector app=frontend does not match pod label app=web
+    category: networking
+    expected: fix
+
+  - id: dev-07-cpu-request
+    split: dev
+    target: deployment/api
+    symptom: new api pod Pending with Insufficient cpu, rollout stuck
+    root_cause: cpu request 64 (cores) instead of 64m
+    category: scheduling
+    expected: fix
+
+  - id: dev-08-missing-secret
+    split: dev
+    target: deployment/api
+    symptom: api pods CreateContainerConfigError, secret api-secret not found, web /api/ returns 502
+    root_cause: Secret api-secret was deleted; the token value cannot be recovered by the agent
+    category: config
+    expected: escalate
+
+  - id: dev-09-scaled-to-zero
+    split: dev
+    target: deployment/web
+    symptom: no web pods at all, Service has no endpoints, full outage
+    root_cause: deployment web scaled to 0 replicas
+    category: scaling
+    expected: fix
+
+  - id: ho-01-target-port
+    split: heldout
+    target: service/api
+    symptom: api pods healthy but web /api/ returns 502; endpoints exist
+    root_cause: Service api targetPort 8081 but container listens on 8080
+    category: networking
+    expected: fix
+
+  - id: ho-02-bad-command
+    split: heldout
+    target: deployment/worker
+    symptom: new worker pod fails to start, executable "stresss" not found
+    root_cause: container command typo stresss instead of stress
+    category: image
+    expected: fix
+
+  - id: ho-03-node-selector
+    split: heldout
+    target: deployment/web
+    symptom: new web pod Pending, no node matches node selector
+    root_cause: nodeSelector disktype=ssd but no node has that label
+    category: scheduling
+    expected: fix
+
+  - id: ho-04-quota
+    split: heldout
+    target: namespace/demo
+    symptom: api pods missing, ReplicaSet FailedCreate exceeded quota, web /api/ returns 502
+    root_cause: ResourceQuota pod-limit (pods=3) blocks api pods; quota is admin policy
+    category: policy
+    expected: escalate
+
+  - id: ho-05-double-fault
+    split: heldout
+    target: deployment/worker + service/web
+    symptom: worker ImagePullBackOff AND web Service has no endpoints
+    root_cause: worker image tag 9.9.9 does not exist; web Service selector app=web-v2 matches nothing
+    category: multi
+    expected: fix

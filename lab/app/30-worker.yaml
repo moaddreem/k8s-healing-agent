@@ -1,0 +1,32 @@
+# worker: a background job with no HTTP endpoint.
+# It continuously allocates ~48MB of memory (same image the Kubernetes docs use
+# in "Assign Memory Resources to Containers"), so its memory limit really matters.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: demo
+  labels:
+    app: worker
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 60
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+        - name: worker
+          image: polinux/stress:1.0.4
+          command: ["stress"]
+          args: ["--vm", "1", "--vm-bytes", "48M", "--vm-hang", "1"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 100Mi
