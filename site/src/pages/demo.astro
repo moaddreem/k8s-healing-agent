@@ -2,17 +2,18 @@
 import Base from "../layouts/Base.astro";
 import Label from "../components/Label.astro";
 import { FAULTS } from "../lib/sim";
+import { FAULT_NAME } from "../lib/plain";
 const dev = FAULTS.filter((f) => f.split === "dev");
 const held = FAULTS.filter((f) => f.split === "heldout");
-const stages = ["Break", "Inspect", "Treat", "Verify"];
+const stages = ["Break it", "Look around", "Let Nabd fix it", "Check the result"];
 ---
-<Base title="Nabd · Live demo" description="Break a simulated copy of the Nabd lab in your browser, inspect it with kubectl, and watch Nabd treat it, one step at a time." page="demo">
+<Base title="Nabd · Live demo" description="Break a small test system in your browser and watch Nabd find the cause and fix it safely, one step at a time." page="demo">
   <main class="wrap demo">
     <section class="intro">
-      <h1>Break the lab. Watch Nabd treat it.</h1>
+      <h1>Break it. Watch Nabd fix it.</h1>
       <p>
-        A simulated copy of the lab runs in your browser: web, api and worker in namespace <code>demo</code>.
-        Nabd here runs the same rules, formulary and safety gate as the real agent. Four steps, one at a time.
+        A small copy of our test system runs in your browser: a website, a data service behind it, and a background worker.
+        Break something, and watch Nabd find the cause and fix it with the same rules and safety checks as the real agent.
       </p>
     </section>
 
@@ -22,53 +23,53 @@ const stages = ["Break", "Inspect", "Treat", "Verify"];
 
     <section class="stage" id="stage-1" aria-labelledby="s1-h">
       <h2 id="s1-h">Pick something to break</h2>
-      <p class="lead">Each one is a real fault from the lab, with the story of how it happens in real teams.</p>
-      <h3 class="group">Faults used while building Nabd</h3>
+      <p class="lead">Each one is a mistake that happens in real teams. Pick any.</p>
+      <h3 class="group">Problems used while building Nabd</h3>
       <div class="fault-grid">
         {dev.map((f) => (
           <button class="fault" type="button" data-fault={f.id}>
-            <b>{f.title}</b><span>{f.story}</span><code>{f.id}</code>
+            <b>{FAULT_NAME[f.id]}</b><span>{f.story}</span>
           </button>
         ))}
       </div>
-      <h3 class="group">Held-out faults <small>the rules were never tuned on these</small></h3>
+      <h3 class="group">Surprise problems <small>kept secret while building Nabd</small></h3>
       <div class="fault-grid">
         {held.map((f) => (
           <button class="fault" type="button" data-fault={f.id}>
-            <b>{f.title}</b><span>{f.story}</span><code>{f.id}</code>
+            <b>{FAULT_NAME[f.id]}</b><span>{f.story}</span>
           </button>
         ))}
       </div>
     </section>
 
     <section class="stage" id="stage-2" aria-labelledby="s2-h" hidden>
-      <h2 id="s2-h">Inspect the patient</h2>
+      <h2 id="s2-h">Look around</h2>
       <p class="lead" id="story"></p>
       <div class="inspect">
         <div class="status">
-          <div class="panel-head"><h3>Health check</h3><span class="verdict" id="verdict">Healthy</span></div>
+          <div class="panel-head"><h3>Is it healthy?</h3><span class="verdict" id="verdict">Healthy</span></div>
           <ul class="checks" id="checks"></ul>
-          <h3 class="wl-h">Workloads</h3>
+          <h3 class="wl-h">Running copies</h3>
           <ul class="workloads" id="workloads"></ul>
         </div>
         <div class="slot" id="slot-2">
           <div class="term" id="term">
-            <div class="term-bar"><span>moad@healing-lab · namespace demo</span><span>simulated</span></div>
+            <div class="term-bar"><span>Terminal</span><span>simulated</span></div>
             <pre class="term-out" id="out" tabindex="0" aria-live="polite"></pre>
             <form class="term-in" id="form" autocomplete="off">
               <label for="cmd">$</label>
-              <input id="cmd" name="cmd" spellcheck="false" placeholder="type a command, or run a suggestion below" aria-label="Command" />
+              <input id="cmd" name="cmd" spellcheck="false" placeholder="optional: type a command, or click a suggestion" aria-label="Command" />
             </form>
           </div>
           <div class="hints" id="hints-2"></div>
         </div>
       </div>
-      <div class="next"><span>Seen enough?</span><button class="btn" type="button" id="to-treat">Call Nabd</button></div>
+      <div class="next"><span>No need to understand the terminal.</span><button class="btn" type="button" id="to-treat">Let Nabd fix it</button></div>
     </section>
 
     <section class="stage" id="stage-3" aria-labelledby="s3-h" hidden>
-      <h2 id="s3-h">Let Nabd treat it</h2>
-      <p class="lead">Every step is printed on the label as it happens. Configuration changes stop and wait for you.</p>
+      <h2 id="s3-h">Let Nabd fix it</h2>
+      <p class="lead">Each step appears as it happens. If the fix changes how the app is set up, Nabd stops and asks you.</p>
       <div class="treat">
         <ol class="steps" id="steps"></ol>
         <Label id="demo-rx" />
@@ -82,8 +83,8 @@ const stages = ["Break", "Inspect", "Treat", "Verify"];
         <div class="facts-col">
           <h3>What Nabd changed</h3>
           <ul class="changes" id="changes"></ul>
-          <h3>The same fault in the real lab</h3>
-          <p class="small">This page runs the rules engine only. The benchmark ran all three modes on a real kind cluster:</p>
+          <h3>The same problem on the real cluster</h3>
+          <p class="small">This page runs Nabd's rules. On our real test cluster we ran three versions on the same problem:</p>
           <ul class="real" id="real"></ul>
         </div>
         <div class="slot" id="slot-4"><div class="hints" id="hints-4"></div></div>
@@ -100,6 +101,7 @@ const stages = ["Break", "Inspect", "Treat", "Verify"];
   import { kubectl, HELP } from "../lib/kubectl";
   import { Rx } from "../lib/label";
   import { inspectHints, verifyHints, changes, type Hint } from "../lib/guide";
+  import { FAULT_NAME, CHECK_NAME, APP_NAME } from "../lib/plain";
   import bench from "../data/benchmark.json";
 
   let c: Cluster = baseline();
@@ -145,7 +147,7 @@ const stages = ["Break", "Inspect", "Treat", "Verify"];
     v.textContent = ok ? "Healthy" : "Unhealthy";
     v.dataset.ok = String(ok);
     $("checks").innerHTML = checks
-      .map((x) => `<li class="${x.ok ? "ok" : "bad"}">${x.ok ? ICON.ok : ICON.bad}<span><b>${esc(x.label)}</b>${x.detail && !x.ok ? `<small>${esc(x.detail)}</small>` : ""}</span></li>`)
+      .map((x) => `<li class="${x.ok ? "ok" : "bad"}">${x.ok ? ICON.ok : ICON.bad}<span><b>${esc(CHECK_NAME[x.label] ?? x.label)}</b>${x.detail && !x.ok ? `<small>${esc(x.detail)}</small>` : ""}</span></li>`)
       .join("");
     $("workloads").innerHTML = c.deployments
       .map((d) => {
@@ -158,14 +160,14 @@ const stages = ["Break", "Inspect", "Treat", "Verify"];
             return `<i class="pod ${kind}" title="${esc(p.name)}: ${esc(st.reason ?? (st.ready ? "Running" : "not ready"))}"></i>`;
           })
           .join("");
-        return `<li><span class="wl-name">${d.name}</span><span class="dots">${dots || "<em>no pods</em>"}</span><span class="wl-count">${s.ready}/${d.replicas}</span></li>`;
+        return `<li><span class="wl-name">${APP_NAME[d.name] ?? d.name}</span><span class="dots">${dots || "<em>no pods</em>"}</span><span class="wl-count">${s.ready}/${d.replicas}</span></li>`;
       })
       .join("");
   }
 
   function hints(target: string, list: Hint[]) {
     const box = $(target);
-    box.innerHTML = `<p class="hints-h">Try these, in order</p>` +
+    box.innerHTML = `<p class="hints-h">What an engineer would type (click to run)</p>` +
       list.map((h, i) => `<button type="button" class="hint" data-cmd="${esc(h.cmd)}"><span class="n">${i + 1}</span><span><code>${esc(h.cmd)}</code><small>${esc(h.look)}</small></span></button>`).join("");
     box.querySelectorAll<HTMLButtonElement>(".hint").forEach((b) =>
       b.addEventListener("click", () => { exec(b.dataset.cmd!); b.classList.add("ran"); }),
@@ -185,7 +187,7 @@ const stages = ["Break", "Inspect", "Treat", "Verify"];
     print(`injected: ${f.story}`);
     print(`fast-forwarded 90s so the symptoms can appear`, "dim");
     document.querySelectorAll<HTMLElement>(".fault").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.fault === id)));
-    $("story").textContent = `${f.title}. ${f.story} Look around before calling Nabd: what would you check first?`;
+    $("story").textContent = `${FAULT_NAME[id]}. ${f.story} Engineers would start with the commands below; you can also skip straight to Nabd.`;
     $("slot-2").prepend($("term"));
     hints("hints-2", inspectHints(c, id));
     $("next-3").hidden = true;
@@ -196,8 +198,9 @@ const stages = ["Break", "Inspect", "Treat", "Verify"];
   }
 
   const STEP: Record<Step["kind"], string> = {
-    detect: "Detect", evidence: "Evidence", group: "Group", diagnose: "Diagnose", policy: "Formulary check", countersign: "Countersign",
-    dryrun: "Dry-run", apply: "Apply", verify: "Verify", resolved: "Resolved", escalate: "Refer to a human", rollback: "Rollback", healthy: "Healthy",
+    detect: "Noticed the problem", evidence: "Collected evidence", group: "Grouped symptoms", diagnose: "Found the cause", policy: "Safety check",
+    countersign: "Asked you", dryrun: "Safety test", apply: "Applied the fix", verify: "Checked the result", resolved: "Fixed",
+    escalate: "Handed to a human", rollback: "Undid its change", healthy: "Nothing broken",
   };
 
   async function treat() {
@@ -230,7 +233,7 @@ const stages = ["Break", "Inspect", "Treat", "Verify"];
 
   type Mode = { ok: boolean; outcome: string; seconds: number | null };
   const realRows = (bench as { faults?: { fault: string; modes: Record<string, Mode> }[] }).faults ?? [];
-  const MODE: Record<string, string> = { rules: "Rules only", llm: "Claude only", hybrid: "Hybrid" };
+  const MODE: Record<string, string> = { rules: "Rules only", llm: "AI model only", hybrid: "Nabd (rules + AI)" };
 
   function verify() {
     show(4);
@@ -243,7 +246,7 @@ const stages = ["Break", "Inspect", "Treat", "Verify"];
       ? Object.entries(MODE).map(([m, name]) => {
           const r = real.modes[m];
           if (!r) return "";
-          const what = r.ok ? (r.outcome === "resolved" ? `fixed and verified in ${r.seconds} s` : "correctly referred to a human") : "missed it, referred to a human";
+          const what = r.ok ? (r.outcome === "resolved" ? `fixed and verified in ${r.seconds} s` : "correctly handed to a human") : "missed it, handed to a human";
           return `<li class="${r.ok ? "pass" : "miss"}"><b>${name}</b><span>${what}</span></li>`;
         }).join("")
       : `<li>No benchmark run recorded for this fault yet.</li>`;
@@ -341,8 +344,8 @@ const stages = ["Break", "Inspect", "Treat", "Verify"];
   .checks b { font-weight: 600; color: var(--ink); }
   .checks small { display: block; color: var(--ink-2); font: 400 0.76rem/1.4 var(--mono); overflow-wrap: anywhere; }
   .wl-h { margin-top: 1rem; }
-  .workloads li { display: grid; grid-template-columns: 4.5rem 1fr auto; align-items: center; gap: 0.6rem; padding: 0.45rem 0; border-bottom: 1px solid var(--rule); }
-  .wl-name { font-family: var(--mono); font-size: 0.88rem; }
+  .workloads li { display: grid; grid-template-columns: minmax(6.5rem, auto) 1fr auto; align-items: center; gap: 0.6rem; padding: 0.45rem 0; border-bottom: 1px solid var(--rule); }
+  .wl-name { font-weight: 600; font-size: 0.9rem; }
   .wl-count { font: 600 0.82rem/1 var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
   .dots { display: flex; gap: 0.35rem; flex-wrap: wrap; }
   .dots em { font-size: 0.82rem; color: var(--bad); font-style: normal; }

@@ -2,6 +2,7 @@
 import Base from "../layouts/Base.astro";
 import Label from "../components/Label.astro";
 import bench from "../data/benchmark.json";
+import { FAULT_NAME } from "../lib/plain";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const repo = "https://github.com/moaddreem/k8s-healing-agent";
@@ -19,22 +20,7 @@ const total = (m: string) => {
 const held = (m: string) => summary.find((s) => s.mode === m && s.split === "heldout");
 const hybrid = total("hybrid");
 
-const plain: Record<string, string> = {
-  "dev-01-image-typo": "Typo in the app's version number",
-  "dev-02-configmap-key-typo": "Typo in the name of a setting",
-  "dev-03-oom": "Memory limit set too low",
-  "dev-04-liveness-port": "Health check pointed at the wrong door",
-  "dev-05-readiness-path": "Health check asks for a page that doesn't exist",
-  "dev-06-selector-mismatch": "Traffic sent to a label nobody has",
-  "dev-07-cpu-request": "Asked for 64 processors instead of a tiny slice",
-  "dev-08-missing-secret": "A password was deleted",
-  "dev-09-scaled-to-zero": "The app was switched off",
-  "ho-01-target-port": "Traffic sent to the wrong door",
-  "ho-02-bad-command": "Typo in the start command",
-  "ho-03-node-selector": "Asked for a kind of server that doesn't exist",
-  "ho-04-quota": "An admin limit blocks new copies",
-  "ho-05-double-fault": "Two different faults at once",
-};
+const plain = FAULT_NAME;
 const cell = (r?: { ok: boolean; outcome: string }) =>
   !r ? "–" : r.ok ? (r.outcome === "resolved" ? "Fixed" : "Handed to a human") : "Missed";
 

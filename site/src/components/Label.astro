@@ -2,10 +2,8 @@
 interface Props { id: string }
 const { id } = Astro.props;
 ---
-<article class="rx" id={id} aria-live="polite" aria-label="Nabd dispensing label">
-  <header class="rx-head"><span>Nabd dispensary · ns demo</span><span data-rx-no>Rx 0000</span></header>
-  <div class="rx-body"><p class="rx-empty">No patient waiting. Break something to start.</p></div>
-  <div class="rx-body-sign" style="padding: 0 1.15rem 1.1rem">
-    <div class="rx-sign" data-state="idle"><span>Pharmacist countersign: not needed yet</span></div>
-  </div>
+<article class="rx" id={id} aria-live="polite" aria-label="What Nabd did">
+  <header class="rx-head"><span>What Nabd did</span><span class="rx-status" data-rx-status data-tone="idle">Waiting</span></header>
+  <div class="rx-body"><p class="rx-empty">Nothing is broken yet. Pick a problem to start.</p></div>
+  <div class="rx-foot"><div class="rx-sign" data-state="idle" hidden></div></div>
 </article>
