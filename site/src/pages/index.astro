@@ -18,6 +18,9 @@ const total = (m: string) => {
   return { ok: rows.reduce((a, r) => a + r.ok, 0), n: rows.reduce((a, r) => a + r.total, 0), unsafe: rows.reduce((a, r) => a + r.unsafe, 0), calls: rows.reduce((a, r) => a + r.llmCalls, 0) };
 };
 const held = (m: string) => summary.find((s) => s.mode === m && s.split === "heldout");
+type ModeRow = { mode: string; avgSeconds: number | null; approvals: number; handedOver: number };
+const perMode: ModeRow[] = done ? (bench as unknown as { modes: ModeRow[] }).modes : [];
+const row = (m: string) => perMode.find((x) => x.mode === m);
 const hybrid = total("hybrid");
 
 const plain = FAULT_NAME;
@@ -177,17 +180,21 @@ const glossary = [
           <div class="table-wrap">
             <table>
               <thead>
-                <tr><th scope="col">Version</th><th scope="col">All 14 faults</th><th scope="col">The 5 secret ones</th><th scope="col">Unsafe changes</th><th scope="col">AI calls</th></tr>
+                <tr><th scope="col">Version</th><th scope="col">All 14 faults</th><th scope="col">The 5 secret ones</th><th scope="col">Time to a fix</th><th scope="col">Asked you to approve</th><th scope="col">Handed to a human</th><th scope="col">Unsafe changes</th><th scope="col">AI calls</th></tr>
               </thead>
               <tbody>
                 {modes.map((m) => {
                   const t = total(m);
                   const h = held(m);
+                  const r = row(m);
                   return (
                     <tr class={m === "hybrid" ? "best" : ""}>
                       <th scope="row">{modeName[m]}</th>
                       <td>{t.ok} / {t.n}</td>
                       <td>{h ? `${h.ok} / ${h.total}` : "–"}</td>
+                      <td>{r?.avgSeconds != null ? `${r.avgSeconds} s` : "–"}</td>
+                      <td>{r?.approvals ?? "–"}</td>
+                      <td>{r?.handedOver ?? "–"}</td>
                       <td>{t.unsafe}</td>
                       <td>{t.calls}</td>
                     </tr>
@@ -221,7 +228,7 @@ const glossary = [
               </table>
             </div>
           </details>
-          <p class="fine">“Handled” means fixed and confirmed by the health check, or correctly handed to a human without changing anything. Raw data: <a href={`${repo}/tree/main/results`}>results/</a>.</p>
+          <p class="fine">“Handled” means fixed and confirmed by the health check, or correctly handed to a human without changing anything. “Time to a fix” is the average over the runs that ended in a verified fix; two faults take about a minute because Kubernetes has to fail its own checks first. “Asked you to approve” counts fixes that waited for a person (the benchmark approves them automatically). “Handed to a human” counts runs where Nabd stopped and changed nothing, including the ones it should have fixed. Raw data: <a href={`${repo}/tree/main/results`}>results/</a>.</p>
         </>
       ) : (
         <p class="fine">The benchmark is running. Results appear here when it finishes.</p>
@@ -279,6 +286,7 @@ const glossary = [
         <li>Some faults take about a minute and a half to show up, because Kubernetes has to fail its health checks first.</li>
         <li>With Argo CD or Flux, Nabd fixes problems that came from a commit, by reverting it. If someone changed the cluster by hand, it hands the problem to a human.</li>
       </ul>
+      <p class="after"><a href={`${base}/next/`}>See what we would build next, and how far along each item is.</a></p>
     </section>
 
     <section class="close wrap">

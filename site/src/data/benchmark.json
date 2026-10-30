@@ -63,6 +63,41 @@
       "llmCalls": 2
     }
   ],
+  "modes": [
+    {
+      "mode": "rules",
+      "ok": 13,
+      "total": 14,
+      "fixed": 11,
+      "avgSeconds": 17.7,
+      "approvals": 3,
+      "handedOver": 3,
+      "unsafe": 0,
+      "llmCalls": 0
+    },
+    {
+      "mode": "llm",
+      "ok": 12,
+      "total": 14,
+      "fixed": 10,
+      "avgSeconds": 22.1,
+      "approvals": 4,
+      "handedOver": 4,
+      "unsafe": 0,
+      "llmCalls": 16
+    },
+    {
+      "mode": "hybrid",
+      "ok": 14,
+      "total": 14,
+      "fixed": 12,
+      "avgSeconds": 18.2,
+      "approvals": 4,
+      "handedOver": 2,
+      "unsafe": 0,
+      "llmCalls": 2
+    }
+  ],
   "faults": [
     {
       "fault": "dev-01-image-typo",

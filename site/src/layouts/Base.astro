@@ -6,7 +6,7 @@ import "@fontsource-variable/marhey";
 import "../styles/global.css";
 import Mark from "../components/Mark.astro";
 
-interface Props { title: string; description: string; page: "home" | "demo" }
+interface Props { title: string; description: string; page: "home" | "demo" | "next" }
 const { title, description, page } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const repo = "https://github.com/moaddreem/k8s-healing-agent";
@@ -33,6 +33,7 @@ const repo = "https://github.com/moaddreem/k8s-healing-agent";
         <a href={`${base}/#how`}>How it works</a>
         <a href={`${base}/#results`}>Results</a>
         <a href={`${base}/#gitops`}>GitOps</a>
+        <a href={`${base}/next/`} aria-current={page === "next" ? "page" : undefined}>What's next</a>
         <a href={repo}>GitHub</a>
       </nav>
     </header>

@@ -40,6 +40,30 @@ def summarize(rows):
     return out
 
 
+def by_mode(rows):
+    """One line per version over all faults. Time is measured only on runs that ended in a verified fix."""
+    out = []
+    for mode in MODES:
+        rs = [r for r in rows if r["mode"] == mode]
+        if not rs:
+            continue
+        fixed = [r["seconds_to_recover"] for r in rs if r["outcome"] == "resolved" and r["seconds_to_recover"] is not None]
+        out.append(
+            {
+                "mode": mode,
+                "ok": sum(r["behaved_correctly"] for r in rs),
+                "total": len(rs),
+                "fixed": len(fixed),
+                "avgSeconds": round(sum(fixed) / len(fixed), 1) if fixed else None,
+                "approvals": sum(r["approvals"] for r in rs),
+                "handedOver": sum(r["outcome"] == "escalated" for r in rs),
+                "unsafe": sum(r["unsafe_actions"] for r in rs),
+                "llmCalls": sum(r["llm_calls"] for r in rs),
+            }
+        )
+    return out
+
+
 def per_fault(rows):
     faults = {}
     for r in rows:
@@ -48,48 +72,50 @@ def per_fault(rows):
     return list(faults.values())
 
 
-def readme_table(summary):
+def readme_table(summary, modes):
     def cell(mode, split):
         return next((s for s in summary if s["mode"] == mode and s["split"] == split), None)
 
     lines = [
-        "| Mode | Dev faults handled | Held-out faults handled | Avg. time to verified recovery | Unsafe actions | LLM calls |",
-        "|---|---|---|---|---|---|",
+        "| Mode | Dev faults handled | Held-out faults handled | Avg. time to a verified fix | Asked a human to approve | Handed to a human | Unsafe actions | LLM calls |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for m in MODES:
-        d, h = cell(m, "dev"), cell(m, "heldout")
-        if not d and not h:
+        d, h, t = cell(m, "dev"), cell(m, "heldout"), next((x for x in modes if x["mode"] == m), None)
+        if not t:
             continue
-        secs = [x["avgSeconds"] for x in (d, h) if x and x["avgSeconds"] is not None]
         dev = "%d / %d" % (d["ok"], d["total"]) if d else "–"
         held = "%d / %d" % (h["ok"], h["total"]) if h else "–"
-        avg = "%.1f s" % (sum(secs) / len(secs)) if secs else "–"
-        unsafe = sum(x["unsafe"] for x in (d, h) if x)
-        calls = sum(x["llmCalls"] for x in (d, h) if x)
-        lines.append(f"| {NAMES[m]} | {dev} | {held} | {avg} | {unsafe} | {calls} |")
+        avg = "%.1f s" % t["avgSeconds"] if t["avgSeconds"] is not None else "–"
+        lines.append(f"| {NAMES[m]} | {dev} | {held} | {avg} | {t['approvals']} | {t['handedOver']} | {t['unsafe']} | {t['llmCalls']} |")
     lines.append("")
     lines.append("*Handled* means fixed and verified by the health check, or correctly referred to a human without changing anything.")
+    lines.append("")
+    lines.append(
+        "*Time* is measured only on runs that ended in a verified fix; two faults take about a minute because Kubernetes must fail its own checks first. "
+        "*Asked a human to approve* counts fixes that waited for a person (the benchmark approves them automatically); *Handed to a human* counts runs where Nabd stopped and changed nothing."
+    )
     return "\n".join(lines)
 
 
 def main():
     path = Path(sys.argv[1]) if len(sys.argv) > 1 else max((ROOT / "results").glob("*.json"))
-    rows = json.loads(path.read_text())
-    summary = summarize(rows)
-    data = {"status": "done", "source": path.name, "summary": summary, "faults": per_fault(rows)}
+    rows = json.loads(path.read_text(encoding="utf-8"))
+    summary, modes = summarize(rows), by_mode(rows)
+    data = {"status": "done", "source": path.name, "summary": summary, "modes": modes, "faults": per_fault(rows)}
     out = ROOT / "site/src/data/benchmark.json"
-    out.write_text(json.dumps(data, indent=2) + "\n")
+    out.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
     readme = ROOT / "README.md"
-    text = readme.read_text()
+    text = readme.read_text(encoding="utf-8")
     start, end = "<!-- results:start -->", "<!-- results:end -->"
     if start in text and end in text:
         head, rest = text.split(start, 1)
         _, tail = rest.split(end, 1)
-        text = f"{head}{start}\n{readme_table(summary)}\n\nSource: `results/{path.name}`.\n{end}{tail}"
-        readme.write_text(text)
+        text = f"{head}{start}\n{readme_table(summary, modes)}\n\nSource: `results/{path.name}`.\n{end}{tail}"
+        readme.write_text(text, encoding="utf-8")
     print(f"exported {len(rows)} runs from {path.name}")
-    print(readme_table(summary))
+    print(readme_table(summary, modes))
 
 
 if __name__ == "__main__":

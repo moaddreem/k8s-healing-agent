@@ -26,9 +26,17 @@ Built for GitOps teams like HUMAIN's: when Argo CD or Flux deploys the app, a fi
 3. **Fix and prove it**
    It applies the fix (or, with Argo CD or Flux, opens a pull request), re-runs an independent health check, undoes its change if it didn't help, and writes an incident report.
 
+**What's next** (be honest: these are next steps, not claims)
+- GitOps mode on a live Argo CD: built and tested with real Git repositories, not yet run on a live Argo CD.
+- Different rules per environment (dev acts alone, staging asks, production only through a pull request): designed, not built.
+- Running on AI model servers (vLLM, SGLang): idea. The same kinds of faults apply; not tried.
+- Catching silent failures, and starting from existing alerts: ideas.
+Each item, with its status and reasons: https://nabd.duraym.com/next/
+
 **Links**
 - Live demo (no install): https://nabd.duraym.com/demo/
 - Website: https://nabd.duraym.com
+- What's next: https://nabd.duraym.com/next/
 - Code, lab and benchmark: https://github.com/moaddreem/k8s-healing-agent
 - Video: (add the YouTube link, Unlisted or Public)
 - Slides: (add the Google Slides or PDF link)

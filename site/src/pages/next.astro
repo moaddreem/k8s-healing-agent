@@ -1,0 +1,205 @@
+---
+import Base from "../layouts/Base.astro";
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const repo = "https://github.com/moaddreem/k8s-healing-agent";
+
+type Item = { title: string; source: string; what: string; why: string; today: string };
+type Group = { status: "built" | "designed" | "idea"; label: string; title: string; intro: string; items: Item[] };
+
+const groups: Group[] = [
+  {
+    status: "built",
+    label: "Built, live test pending",
+    title: "Built, waiting for a live test",
+    intro: "The code and the automated tests exist. What is missing is a run on the real tool.",
+    items: [
+      {
+        title: "Fix apps that Argo CD or Flux deploy",
+        source: "A mentor's suggestion, because HUMAIN's teams deploy with GitOps",
+        what: "Nabd opens a pull request that reverts the commit that broke the app, instead of changing the cluster directly. Merging it is the approval.",
+        why: "In GitOps, a fix made straight on the cluster is undone at the next sync, so the fix has to go through Git.",
+        today: "Built and covered by 12 automated tests that use real Git repositories. Not yet run against a live Argo CD. The lab to do it is in the repo. Flux is recognised and unit-tested, not run.",
+      },
+    ],
+  },
+  {
+    status: "designed",
+    label: "Designed, not built",
+    title: "Designed, next to build",
+    intro: "We know how it should work, and it changes how Nabd decides, so it needs proper tests before it ships.",
+    items: [
+      {
+        title: "Different rules for each environment",
+        source: "A mentor's suggestion",
+        what: "Development fixes things on its own. Staging asks a person before a risky fix. Production changes only through a pull request.",
+        why: "A mistake in production costs far more than one in development, so the same freedom should not apply everywhere.",
+        today: "One rule book covers everything, plus a short list of allowed areas. The GitOps mode is already the production-style path: nothing changes without a pull request.",
+      },
+    ],
+  },
+  {
+    status: "idea",
+    label: "Idea, not started",
+    title: "Ideas for later",
+    intro: "Directions we think are worth it. None of them is started.",
+    items: [
+      {
+        title: "Run on AI model servers (vLLM, SGLang)",
+        source: "A mentor's suggestion",
+        what: "Point Nabd at the servers that run AI models, where an outage stops every app that depends on the model.",
+        why: "AI model servers fail in familiar ways, which the table below shows. It matters most for a company that runs on AI.",
+        today: "Not tried. We have not run Nabd on vLLM, SGLang or TensorRT-LLM, and these servers need GPUs we do not have here.",
+      },
+      {
+        title: "Catch silent failures",
+        source: "From the challenge brief",
+        what: "Spot problems where nothing crashes and no error appears, such as orders quietly getting lost, by checking that the app is doing its job.",
+        why: "The hardest outages to find are the ones that make no noise.",
+        today: "Nabd starts when a health check fails or an app crashes. It cannot see a silent failure yet.",
+      },
+      {
+        title: "Start from the alerts teams already have",
+        source: "Our own idea",
+        what: "Begin an investigation when Alertmanager or PagerDuty raises an alert, instead of Nabd watching by itself.",
+        why: "Teams already have alerts. A tool that plugs into them is easier to adopt.",
+        today: "Nabd runs from the command line and checks the app itself.",
+      },
+      {
+        title: "More fixes on the list",
+        source: "Our own idea",
+        what: "Add new fixes one at a time. Each gets its own rule, a policy decision, a dry-run, a way to undo it, and tests.",
+        why: "Five fixes cover the problems we tested. Real clusters have more kinds of problems.",
+        today: "Five fixes. A new one is not allowed until it has all of the above.",
+      },
+      {
+        title: "Try it next to a real staging cluster",
+        source: "Our own idea",
+        what: "Run Nabd beside a team's staging environment with real traffic, starting in plan-only mode, where it diagnoses and dry-runs but changes nothing.",
+        why: "Everything so far ran on our own small test cluster.",
+        today: "Tested on a three-server test cluster with three apps. Plan-only mode already exists.",
+      },
+    ],
+  },
+];
+
+const envs = [
+  ["Development", "Acts on its own", "Acts on its own"],
+  ["Staging", "Acts on its own", "Asks a person first"],
+  ["Production", "Pull request only", "Pull request only"],
+];
+
+const mapping = [
+  ["Typo in the app's version", "Wrong version of the model server", "Go back to the version that worked"],
+  ["The app runs out of memory", "The model does not fit in the memory it was given", "Go back if a change caused it, otherwise hand to a human"],
+  ["A health check kills a healthy app", "The health check kills the server while it is still loading a large model", "Go back to the last working setting"],
+  ["A deleted password", "A missing access token for the model hub", "Hand to a human: Nabd never reads or invents passwords"],
+  ["The app has nowhere to run", "No free GPU, or the wrong GPU label", "Go back if a change caused it, otherwise hand to a human"],
+];
+---
+<Base title="Nabd · What's next" description="What Nabd still needs, how far along each item is, and which ones came from mentors." page="next">
+  <main>
+    <section class="top wrap">
+      <h1>What's next.</h1>
+      <p class="lede">
+        Nabd is a hackathon build, so it has limits. This page lists what we know it still needs, how far along each item is,
+        and where the idea came from. Nothing here is claimed as done unless it says so.
+      </p>
+      <ul class="legend" aria-label="Status meaning">
+        <li><span class="pill built">Built, live test pending</span> code and tests exist</li>
+        <li><span class="pill designed">Designed, not built</span> we know how it should work</li>
+        <li><span class="pill idea">Idea, not started</span> worth doing, nothing written</li>
+      </ul>
+    </section>
+
+    {groups.map((g) => (
+      <section class="group wrap" aria-labelledby={`g-${g.status}`}>
+        <div class="head">
+          <h2 id={`g-${g.status}`}>{g.title}</h2>
+          <p>{g.intro}</p>
+        </div>
+        <ul class="items">
+          {g.items.map((it) => (
+            <li class="card">
+              <div class="card-head">
+                <h3>{it.title}</h3>
+                <span class={`pill ${g.status}`}>{g.label}</span>
+              </div>
+              <p class="source">{it.source}</p>
+              <p class="what">{it.what}</p>
+              <dl>
+                <div><dt>Why it matters</dt><dd>{it.why}</dd></div>
+                <div><dt>Where we are today</dt><dd>{it.today}</dd></div>
+              </dl>
+              {it.title.startsWith("Different rules") && (
+                <div class="table-wrap">
+                  <table class="mini">
+                    <caption>The intended rules. Not built yet.</caption>
+                    <thead><tr><th scope="col">Environment</th><th scope="col">Safe fixes (go back, restart, more copies)</th><th scope="col">Risky fixes (change traffic or a setting)</th></tr></thead>
+                    <tbody>{envs.map((r) => <tr><th scope="row">{r[0]}</th><td>{r[1]}</td><td>{r[2]}</td></tr>)}</tbody>
+                  </table>
+                </div>
+              )}
+              {it.title.startsWith("Run on AI model servers") && (
+                <div class="table-wrap">
+                  <table class="mini">
+                    <caption>A comparison on paper, not a test: our faults next to the same kind of fault on an AI model server.</caption>
+                    <thead><tr><th scope="col">A fault in our lab</th><th scope="col">The same kind of fault on an AI model server</th><th scope="col">What Nabd would do today</th></tr></thead>
+                    <tbody>{mapping.map((r) => <tr><th scope="row">{r[0]}</th><td>{r[1]}</td><td>{r[2]}</td></tr>)}</tbody>
+                  </table>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))}
+
+    <section class="close wrap">
+      <h2>See what already works.</h2>
+      <p>The demo runs Nabd's real rules in your browser. The code, the lab and the results are on GitHub.</p>
+      <div class="ctas">
+        <a class="btn" href={`${base}/demo/`}>Try it in your browser</a>
+        <a class="btn ghost" href={repo}>Read the code</a>
+      </div>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .top { padding-block: clamp(2rem, 5vw, 4rem) 0; }
+  .lede { margin-top: 1.2rem; max-width: 40em; color: var(--ink-2); font-size: clamp(1.08rem, 1rem + 0.35vw, 1.25rem); }
+  .legend { list-style: none; margin: 1.8rem 0 0; padding: 0; display: grid; gap: 0.6rem; color: var(--ink-2); }
+  .legend li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.7rem; }
+
+  .pill { display: inline-block; white-space: nowrap; font: 700 0.78rem/1 var(--sans); padding: 0.4rem 0.7rem; border-radius: 999px; }
+  .pill.built { background: var(--green); color: var(--ink); }
+  .pill.designed { background: var(--paper); color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
+  .pill.idea { background: var(--ground-deep); color: var(--ink-2); }
+
+  .group { margin-top: clamp(3.5rem, 7vw, 5.5rem); }
+  .head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem 3rem; align-items: end; margin-bottom: 1.8rem; }
+  .head p { color: var(--ink-2); max-width: 36em; }
+  .items { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; }
+  .card { background: var(--paper); border-radius: 16px; padding: clamp(1.2rem, 3vw, 1.8rem); box-shadow: var(--shadow); }
+  .card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.6rem 1rem; }
+  .source { margin-top: 0.35rem; font-size: 0.9rem; color: var(--ink-2); }
+  .what { margin-top: 0.9rem; max-width: 46em; }
+  .card dl { margin: 1.2rem 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 2.4rem; }
+  .card dt { font: 700 0.85rem/1.3 var(--sans); color: var(--ink-2); }
+  .card dd { margin: 0.3rem 0 0; }
+  .table-wrap { overflow-x: auto; margin-top: 1.6rem; }
+  .mini { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  .mini caption { text-align: left; font: 700 0.85rem/1.4 var(--sans); color: var(--ink-2); padding-bottom: 0.6rem; }
+  .mini th, .mini td { text-align: left; vertical-align: top; padding: 0.7rem 1rem 0.7rem 0; border-bottom: 1px solid var(--rule); }
+  .mini thead th { font: 600 0.72rem/1.3 var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); border-bottom: 2px solid var(--ink); }
+  .mini tbody th { font-weight: 720; }
+
+  .close { margin-top: clamp(4rem, 8vw, 6rem); text-align: center; display: grid; justify-items: center; gap: 1rem; padding: clamp(2.5rem, 6vw, 4.5rem) 1rem; background: var(--green-light); border-radius: 22px; }
+  .close p { color: var(--ink-2); max-width: 32em; }
+  .ctas { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.8rem; margin-top: 0.6rem; }
+
+  @media (max-width: 860px) {
+    .head, .card dl { grid-template-columns: 1fr; }
+  }
+</style>
