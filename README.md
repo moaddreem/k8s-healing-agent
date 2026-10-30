@@ -17,6 +17,11 @@
   <a href="#run-it-yourself">Run it yourself</a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/moaddreem/k8s-healing-agent/actions/workflows/tests.yml"><img src="https://github.com/moaddreem/k8s-healing-agent/actions/workflows/tests.yml/badge.svg" alt="tests"></a>
+  <a href="https://github.com/moaddreem/k8s-healing-agent/actions/workflows/pages.yml"><img src="https://github.com/moaddreem/k8s-healing-agent/actions/workflows/pages.yml/badge.svg" alt="site deploy"></a>
+</p>
+
 Built for the HUMAIN × Misk **Future AI Builders** hackathon, Challenge 1: *Agentic Recovery of a Failing System*.
 
 ---

@@ -41,7 +41,7 @@ def run_one(fault, mode, wait):
     time.sleep(wait)
     llm_before = dict(llm.STATS)
     log = []
-    res = agent.run(mode=mode, approval="yes", say=log.append)
+    res = agent.run(mode=mode, approval="yes", say=log.append, write_report=False)
     healthy, _ = verify.check()
     expect = fault["expected"]
     touched = len(res["applied"]) > 0

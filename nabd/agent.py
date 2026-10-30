@@ -8,9 +8,10 @@ import json
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
-from . import actions, evidence, guard, kube, policy, rules, verify
+from . import actions, evidence, guard, kube, policy, report, rules, verify
 
 
 def _sig(dx):
@@ -76,8 +77,16 @@ def _ask(approval, say):
     return input("        ✋ Approve this change? [y/N] ").strip().lower() in ("y", "yes")
 
 
-def run(ns="demo", mode="rules", approval="ask", plan_only=False, max_rounds=4, settle=60, say=print):
+def run(ns="demo", mode="rules", approval="ask", plan_only=False, max_rounds=4, settle=60, say=print, write_report=True):
     t0 = time.time()
+    started = datetime.now(timezone.utc)
+    transcript, findings = [], []
+    print_line = say
+
+    def say(line):  # every line also goes into the incident report
+        transcript.append(line)
+        print_line(line)
+
     res = {
         "mode": mode,
         "namespace": ns,
@@ -98,6 +107,11 @@ def run(ns="demo", mode="rules", approval="ask", plan_only=False, max_rounds=4, 
 
     def finish():
         res["seconds"] = round(time.time() - t0, 1)
+        if write_report and res["outcome"] in ("resolved", "escalated", "plan"):
+            _, health_output = verify.check()
+            path = report.write(res, transcript, findings, started, health_output)
+            res["report"] = str(path)
+            print_line(f"📝 REPORT: {path}")
         return res
 
     def escalate(reason, dxs=()):
@@ -148,6 +162,7 @@ def run(ns="demo", mode="rules", approval="ask", plan_only=False, max_rounds=4, 
             res["grouped"] += raw - len(found)
             step("🧩", f"GROUP: {raw} findings point at {len(found)} incident(s), acting once per workload")
         for d in found:
+            findings.append(d)
             res["diagnoses"].append(
                 {"round": rnd, "source": d["source"], "rule": d["rule"], "category": d["category"],
                  "target": d["target"], "escalate": d["escalate"]}
@@ -185,7 +200,9 @@ def run(ns="demo", mode="rules", approval="ask", plan_only=False, max_rounds=4, 
             return escalate("the policy gate blocked the proposed fix", [dx])
         if any(v["decision"] == "approve" for v in verdicts):
             res["approvals"] += 1
-            if not _ask(approval, say):
+            approved = _ask(approval, say)
+            step("✋", f"APPROVAL: {'granted' if approved else 'refused'}")
+            if not approved:
                 return escalate("a human did not approve the change", [dx])
 
         try:

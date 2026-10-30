@@ -32,11 +32,12 @@ def main():
     g.add_argument("--no-approve", action="store_true", help="refuse every change that needs approval")
     r.add_argument("--plan-only", action="store_true", help="diagnose and dry-run, but do not change anything")
     r.add_argument("--json", action="store_true", help="print the result as JSON at the end")
+    r.add_argument("--no-report", action="store_true", help="do not write an incident report to reports/")
     args = ap.parse_args()
 
     if args.cmd == "run":
         approval = "yes" if args.yes else "no" if args.no_approve else "ask"
-        res = agent.run(args.namespace, args.mode, approval, args.plan_only)
+        res = agent.run(args.namespace, args.mode, approval, args.plan_only, write_report=not args.no_report)
         if args.json:
             print(json.dumps(res, indent=2, ensure_ascii=False))
         return
