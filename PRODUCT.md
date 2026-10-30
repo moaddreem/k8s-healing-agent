@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Astro (user chose "Framework (React/Astro)"; Astro picked because the site is mostly static content plus one interactive island). Static output deployed to GitHub Pages from the public repo `moaddreem/k8s-healing-agent`, on the custom domain nabd.durayim.com (user-owned domain durayim.com at Namecheap).
+Astro (user chose "Framework (React/Astro)"; Astro picked because the site is mostly static content plus one interactive island). Static output deployed to GitHub Pages from the public repo `moaddreem/k8s-healing-agent`, on the custom domain nabd.duraym.com (user-owned domain duraym.com at Namecheap).
 
 ## Users
 

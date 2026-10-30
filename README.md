@@ -11,8 +11,8 @@
 </p>
 
 <p align="center">
-  <a href="https://nabd.durayim.com/demo/"><b>Live demo</b></a> ·
-  <a href="https://nabd.durayim.com/">Website</a> ·
+  <a href="https://nabd.duraym.com/demo/"><b>Live demo</b></a> ·
+  <a href="https://nabd.duraym.com/">Website</a> ·
   <a href="#results">Results</a> ·
   <a href="#run-it-yourself">Run it yourself</a>
 </p>
