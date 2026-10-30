@@ -14,6 +14,7 @@
   <a href="https://nabd.duraym.com/demo/"><b>Live demo</b></a> ·
   <a href="https://nabd.duraym.com/">Website</a> ·
   <a href="#results">Results</a> ·
+  <a href="#built-for-gitops-teams-argo-cd-and-flux">GitOps (Argo CD, Flux)</a> ·
   <a href="#run-it-yourself">Run it yourself</a>
 </p>
 
@@ -62,6 +63,34 @@ Secrets, quotas, namespaces and nodes are not in the vocabulary at all, so nothi
 - **One failure, one treatment.** Symptoms of one fault are grouped into one incident, and a lock allows only one run per namespace.
 - **Knows when to refer.** A deleted Secret, an admin quota, or a dependency outside the cluster is escalated with the diagnosis. The same fix is never retried twice.
 
+## Built for GitOps teams: Argo CD and Flux
+
+> Added for teams like HUMAIN's, where deployments run through GitOps.
+
+With GitOps, Git is the source of truth and Argo CD or Flux keeps the cluster equal to it. A fix made straight on the cluster is undone at the next sync. So when the broken workload carries Argo CD's tracking annotation or Flux's labels, Nabd keeps the same diagnosis and the same safety checks, and changes only the last step:
+
+```
+Nabd diagnoses -> opens a pull request -> a human merges -> Argo CD / Flux syncs -> Nabd verifies
+```
+
+| | A regular cluster | With Argo CD or Flux |
+|---|---|---|
+| Where the fix goes | Straight to the cluster | A pull request that reverts the commit that broke the app |
+| Who approves | A human, for medium-risk fixes | A human, by merging, for every fix |
+| What's left behind | An incident report | An incident report and the Git history |
+
+What Nabd checks before it opens the pull request (`nabd/gitops.py`):
+
+- It reads the repository, branch and path from the Argo CD `Application` (or the Flux `Kustomization` and `GitRepository`), and only pushes to a local clone whose remote is that repository.
+- It reverts the last commit that changed the broken object's manifest, and refuses when that commit is its own fix, a merge, not deployed yet, or touches files outside the app.
+- If Argo CD says the cluster differs from Git (`OutOfSync`), the problem did not come from a commit, so it reverts nothing and calls a human.
+- The reverted manifests must pass `kubectl apply --dry-run=server`.
+- The work happens in a temporary git worktree: the checkout Nabd runs from is never touched.
+
+After the merge it asks Argo CD (or Flux) to sync now, waits for the same independent health check, and writes the pull request link into the incident report. A closed pull request, or none merged within 15 minutes, means nothing changes and a human takes over.
+
+Try it end to end with Argo CD: [`lab/gitops`](lab/gitops/README.md). Flux detection is covered by the unit tests in `tests/test_gitops.py`.
+
 ## Results
 
 Measured on a local kind cluster with **14 reproducible faults**: 9 used while building, 5 held out until the final run. Each run resets the lab, injects one fault, lets Nabd work, and is scored by the independent health check and an answer key the agent never reads.
@@ -78,7 +107,7 @@ Measured on a local kind cluster with **14 reproducible faults**: 9 used while b
 Source: `results/20261030-190400.json`.
 <!-- results:end -->
 
-Also: the rules diagnose **9 / 9** development faults correctly, and **26** offline tests cover the policy gate, the injection guard, the journal and grouping (`python3 -m unittest discover -s tests -t .`).
+Also: the rules diagnose **9 / 9** development faults correctly, and **40** offline tests cover the policy gate, the injection guard, grouping, the incident report and GitOps mode, with real throwaway Git repositories (`python3 -m unittest discover -s tests -t .`).
 
 ## Run it yourself
 
@@ -91,13 +120,15 @@ python3 -m nabd run                         # Nabd heals it (rules mode)
 python3 -m nabd run --mode hybrid           # rules first, Claude when the rules find nothing
 python3 -m nabd run --plan-only             # diagnose and dry-run only, change nothing
 python3 bench/run_benchmark.py --modes rules,llm,hybrid --split all
+python3 -m nabd run -n gitops-demo          # GitOps mode: the fix is a pull request (see lab/gitops)
 ```
 
 ## What's in the repo
 
 ```
-nabd/        the agent: evidence, rules, llm, guard, policy, actions, verify, agent loop
+nabd/        the agent: evidence, rules, llm, guard, policy, actions, gitops, verify, agent loop
 lab/         kind cluster, the demo app (web, api, worker), 14 faults and the answer key
+lab/gitops/  the same web app deployed by Argo CD, for GitOps mode
 bench/       benchmark runner and a diagnose-only sweep
 tests/       offline safety tests
 site/        the website and the in-browser demo (Astro)
@@ -109,3 +140,4 @@ site/        the website and the in-browser demo (Astro)
 - The website demo is a simulation of that lab running the same rules, formulary and policy gate. Claude modes run from the command line.
 - Faults that only show after probes fail (a wrong liveness port) take about a minute and a half to appear.
 - Spotting a cause outside the cluster is a pattern match on logs, not a dependency map.
+- GitOps mode fixes problems that came from a commit, by reverting it. Pull requests are opened with the GitHub CLI, so the repository must be on GitHub.

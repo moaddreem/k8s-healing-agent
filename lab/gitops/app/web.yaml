@@ -1,0 +1,74 @@
+# The GitOps lab app: the same web app as lab/app, but deployed by Argo CD from the gitops-lab branch.
+# Nobody runs `kubectl apply` on this file: changing it means a commit, and Argo CD deploys the commit.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-nginx
+  namespace: gitops-demo
+data:
+  default.conf: |
+    server {
+      listen 80;
+      location = /        { return 200 "web ok\n"; }
+      location = /healthz { return 200 "ok\n"; }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: gitops-demo
+  labels:
+    app: web
+spec:
+  replicas: 2
+  progressDeadlineSeconds: 60
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: conf
+              mountPath: /etc/nginx/conf.d
+      volumes:
+        - name: conf
+          configMap:
+            name: web-nginx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: gitops-demo
+spec:
+  selector:
+    app: web
+  ports:
+    - port: 80
+      targetPort: 80

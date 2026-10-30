@@ -8,7 +8,7 @@ Secrets, quotas, namespaces and nodes are not in the vocabulary at all, so they 
 """
 from . import actions
 
-ALLOWED_NAMESPACES = {"demo"}
+ALLOWED_NAMESPACES = {"demo", "gitops-demo"}
 MAX_REPLICAS = 10
 
 

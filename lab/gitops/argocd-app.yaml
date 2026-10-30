@@ -1,0 +1,22 @@
+# Argo CD deploys lab/gitops/app from the gitops-lab branch into the gitops-demo namespace,
+# and keeps the cluster equal to Git (selfHeal): a change made straight on the cluster is undone.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nabd-gitops
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/moaddreem/k8s-healing-agent.git
+    targetRevision: gitops-lab
+    path: lab/gitops/app
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gitops-demo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

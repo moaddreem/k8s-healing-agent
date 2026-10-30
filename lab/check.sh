@@ -4,7 +4,7 @@
 # to decide whether an incident is really over, and the benchmark uses it to score fixes.
 set -uo pipefail
 
-NS=demo
+NS=${NS:-demo}   # NS=gitops-demo checks the GitOps lab app (lab/gitops) instead
 fail=0
 
 # Call a URL from INSIDE the cluster (through the prober pod) and expect some text in the reply.
@@ -49,9 +49,14 @@ check_restarts() {
   fi
 }
 
-check_http "GET web /"     http://web.demo.svc.cluster.local/     "web ok"
-check_http "GET web /api/" http://web.demo.svc.cluster.local/api/ "hello from api"
-for d in web api worker; do check_rollout "$d"; done
+check_http "GET web /" "http://web.$NS.svc.cluster.local/" "web ok"
+if [[ $NS == demo ]]; then
+  check_http "GET web /api/" http://web.demo.svc.cluster.local/api/ "hello from api"
+  apps="web api worker"
+else
+  apps="web"   # the GitOps lab runs only the web app
+fi
+for d in $apps; do check_rollout "$d"; done
 check_restarts
 
 if (( fail )); then

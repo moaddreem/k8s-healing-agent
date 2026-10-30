@@ -34,8 +34,12 @@ def write(res, transcript, findings, started, health_output, directory=None):
         f"| Changes applied | {applied} |",
         f"| Human approvals asked | {res['approvals']} |",
         f"| LLM calls | {res['llm_calls']} |",
-        "",
     ]
+    if res.get("gitops"):
+        lines.append(f"| Deployed by | {res['gitops']}: the fix went through Git, not the cluster |")
+    if res.get("pull_request"):
+        lines.append(f"| Pull request | {res['pull_request']} |")
+    lines.append("")
     if res.get("escalation"):
         lines += ["## Why a human is needed", "", res["escalation"], ""]
         if res.get("rolled_back"):

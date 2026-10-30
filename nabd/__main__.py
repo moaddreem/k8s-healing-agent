@@ -33,11 +33,14 @@ def main():
     r.add_argument("--plan-only", action="store_true", help="diagnose and dry-run, but do not change anything")
     r.add_argument("--json", action="store_true", help="print the result as JSON at the end")
     r.add_argument("--no-report", action="store_true", help="do not write an incident report to reports/")
+    r.add_argument("--gitops-repo", default=str(agent.REPO), help="local clone of the repo Argo CD / Flux deploys from")
+    r.add_argument("--merge-timeout", type=int, default=900, help="seconds to wait for a human to merge the pull request")
     args = ap.parse_args()
 
     if args.cmd == "run":
         approval = "yes" if args.yes else "no" if args.no_approve else "ask"
-        res = agent.run(args.namespace, args.mode, approval, args.plan_only, write_report=not args.no_report)
+        res = agent.run(args.namespace, args.mode, approval, args.plan_only, write_report=not args.no_report,
+                        gitops_repo=args.gitops_repo, merge_timeout=args.merge_timeout)
         if args.json:
             print(json.dumps(res, indent=2, ensure_ascii=False))
         return

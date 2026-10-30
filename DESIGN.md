@@ -181,7 +181,7 @@ Friendly, rounded and consistent: pills for every action and tag-like control, 1
 - **Outcome stamp:** "Dispensed · healthy" in deep green or "Refer to a human" in orange.
 
 ### Navigation
-- **Style:** mark, Latin name and Arabic word mark on the left; four text links on the right with a 2px green underline on hover and on the current page.
+- **Style:** mark, Latin name and Arabic word mark on the left; five text links on the right with a 2px green underline on hover and on the current page.
 
 ### Demo terminal
 - **Style:** pharmacy-ink ground, light green chrome, mono 0.8rem; tables keep their columns and scroll sideways, prose wraps.

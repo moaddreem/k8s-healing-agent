@@ -33,6 +33,9 @@ const glossary = [
   ["ConfigMap and Secret", "Where an app's settings and passwords are kept, outside the app itself."],
   ["Dry-run", "Asking Kubernetes “would this change be accepted?” without making it."],
   ["Held-out test", "Problems kept hidden while building, used only at the end, to prove it handles cases it was not built for."],
+  ["GitOps", "A way of running apps where every change is a commit in Git, and a tool makes the cluster match Git."],
+  ["Argo CD and Flux", "The two most used GitOps tools. They watch Git and apply each new commit to the cluster."],
+  ["Pull request", "A proposed change in Git. A person reviews it and merges it before it takes effect."],
 ];
 ---
 <Base title="Nabd · Safe, automatic recovery for Kubernetes apps" description="Nabd (نبض) is an AI agent that finds out why a Kubernetes app broke and fixes it with a short list of pre-approved actions, asking a human whenever a fix is not safe." page="home">
@@ -225,6 +228,40 @@ const glossary = [
       )}
     </section>
 
+    <section id="gitops" class="gitops wrap" aria-labelledby="gitops-h">
+      <p class="gx-band"><span>For GitOps teams, like HUMAIN's</span><span class="gx-pill">Argo CD and Flux</span></p>
+      <div class="gx-body">
+        <div class="head">
+          <h2 id="gitops-h">If Git runs your cluster, Nabd fixes Git.</h2>
+          <p>
+            With GitOps, every change is a commit, and Argo CD or Flux keeps the cluster equal to Git. A fix made straight on the
+            cluster is undone at the next sync. So when Argo CD or Flux deploys the broken app, Nabd's fix becomes a pull request.
+          </p>
+        </div>
+        <ol class="flow">
+          <li><span class="n">1</span><h3>Nabd diagnoses</h3><p>Same rules, same safety checks.</p></li>
+          <li class="pr"><span class="n">2</span><h3>It opens a pull request</h3><p>It reverts the commit that broke the app, and explains why in the description.</p></li>
+          <li class="human"><span class="n">3</span><h3>An engineer merges it</h3><p>The approval is a normal code review.</p></li>
+          <li><span class="n">4</span><h3>Argo CD or Flux deploys it</h3><p>The cluster follows Git, as always.</p></li>
+          <li><span class="n">5</span><h3>Nabd verifies</h3><p>The same health check, then the incident report.</p></li>
+        </ol>
+        <div class="table-wrap">
+          <table class="modes">
+            <thead><tr><th scope="col"><span class="sr">Question</span></th><th scope="col">A regular cluster</th><th scope="col">With Argo CD or Flux</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Where the fix goes</th><td>Straight to the cluster</td><td>A pull request in Git</td></tr>
+              <tr><th scope="row">Who approves</th><td>You, in Nabd, for risky fixes</td><td>You, by merging, for every fix</td></tr>
+              <tr><th scope="row">What's left behind</th><td>An incident report</td><td>An incident report and the Git history</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="after">
+          Nabd only reverts a commit that changed this app's own files: never its own fix, never a merge. The reverted files must pass a
+          dry-run on the cluster before the pull request is opened. <a href={`${repo}/tree/main/lab/gitops`}>Try it with Argo CD</a>.
+        </p>
+      </div>
+    </section>
+
     <section class="glossary wrap" aria-labelledby="glossary-h">
       <h2 id="glossary-h">Words you might not know</h2>
       <dl>
@@ -240,6 +277,7 @@ const glossary = [
         <li>Tested on a small test system (three servers, three apps), not yet in a real company.</li>
         <li>The browser demo is a simulation that runs Nabd's rules. The AI part runs from the command line with an API key.</li>
         <li>Some faults take about a minute and a half to show up, because Kubernetes has to fail its health checks first.</li>
+        <li>With Argo CD or Flux, Nabd fixes problems that came from a commit, by reverting it. If someone changed the cluster by hand, it hands the problem to a human.</li>
       </ul>
     </section>
 
@@ -345,6 +383,27 @@ const glossary = [
   .per-fault { margin-top: 1rem; font-size: 0.92rem; }
   .fine { margin-top: 1.2rem; color: var(--ink-2); font-size: 0.9rem; }
 
+  .gitops { background: var(--paper); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; padding: 0; }
+  .gx-band {
+    display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.6rem 1rem;
+    background: var(--green); color: var(--ink); padding: 0.85rem clamp(1.2rem, 3.5vw, 2.4rem); font: 760 1rem/1.2 var(--sans);
+  }
+  .gx-pill { font: 700 0.82rem/1 var(--sans); padding: 0.4rem 0.7rem; border-radius: 999px; background: var(--paper); color: var(--green-deep); }
+  .gx-body { padding: clamp(1.6rem, 4vw, 2.8rem) clamp(1.2rem, 3.5vw, 2.4rem) clamp(1.6rem, 4vw, 2.4rem); }
+  .flow { list-style: none; margin: 0 0 2.2rem; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 2px solid var(--ink); }
+  .flow li { padding: 1.2rem 1.1rem 1.4rem; border-right: 1px solid var(--rule); }
+  .flow li:first-child { padding-left: 0; }
+  .flow li:last-child { border-right: 0; }
+  .flow .n { font: 600 0.8rem/1 var(--mono); color: var(--ink-2); }
+  .flow h3 { margin: 0.6rem 0 0.45rem; }
+  .flow p { font-size: 0.95rem; color: var(--ink-2); }
+  .flow li.pr { background: var(--ground); }
+  .flow li.pr .n { color: var(--green-deep); }
+  .flow li.human { background: var(--warn-paper); }
+  .flow li.human .n, .flow li.human h3 { color: var(--warn); }
+  .modes th[scope="row"] { width: 30%; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
   .glossary dl { margin: 1.6rem 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem 2.6rem; }
   .glossary dt { font-weight: 760; }
   .glossary dd { margin: 0.25rem 0 0; color: var(--ink-2); }
@@ -361,6 +420,9 @@ const glossary = [
     .how ol { grid-template-columns: 1fr; }
     .how li, .how li:first-child { padding: 1.1rem 0; border-right: 0; border-bottom: 1px solid var(--rule); }
     .how li.gate { padding-left: 1rem; }
+    .flow { grid-template-columns: 1fr; }
+    .flow li, .flow li:first-child { padding: 1rem 0; border-right: 0; border-bottom: 1px solid var(--rule); }
+    .flow li.pr, .flow li.human { padding-inline: 1rem; }
   }
   @media (max-width: 640px) {
     .glossary dl { grid-template-columns: 1fr; }
