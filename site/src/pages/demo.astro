@@ -1,0 +1,417 @@
+---
+import Base from "../layouts/Base.astro";
+import Label from "../components/Label.astro";
+import { FAULTS } from "../lib/sim";
+const dev = FAULTS.filter((f) => f.split === "dev");
+const held = FAULTS.filter((f) => f.split === "heldout");
+const stages = ["Break", "Inspect", "Treat", "Verify"];
+---
+<Base title="Nabd · Live demo" description="Break a simulated copy of the Nabd lab in your browser, inspect it with kubectl, and watch Nabd treat it, one step at a time." page="demo">
+  <main class="wrap demo">
+    <section class="intro">
+      <h1>Break the lab. Watch Nabd treat it.</h1>
+      <p>
+        A simulated copy of the lab runs in your browser: web, api and worker in namespace <code>demo</code>.
+        Nabd here runs the same rules, formulary and safety gate as the real agent. Four steps, one at a time.
+      </p>
+    </section>
+
+    <ol class="stepper" id="stepper" aria-label="Progress">
+      {stages.map((s, i) => <li data-stage={i + 1} class={i === 0 ? "current" : ""}><span class="num">{i + 1}</span><span class="label">{s}</span></li>)}
+    </ol>
+
+    <section class="stage" id="stage-1" aria-labelledby="s1-h">
+      <h2 id="s1-h">Pick something to break</h2>
+      <p class="lead">Each one is a real fault from the lab, with the story of how it happens in real teams.</p>
+      <h3 class="group">Faults used while building Nabd</h3>
+      <div class="fault-grid">
+        {dev.map((f) => (
+          <button class="fault" type="button" data-fault={f.id}>
+            <b>{f.title}</b><span>{f.story}</span><code>{f.id}</code>
+          </button>
+        ))}
+      </div>
+      <h3 class="group">Held-out faults <small>the rules were never tuned on these</small></h3>
+      <div class="fault-grid">
+        {held.map((f) => (
+          <button class="fault" type="button" data-fault={f.id}>
+            <b>{f.title}</b><span>{f.story}</span><code>{f.id}</code>
+          </button>
+        ))}
+      </div>
+    </section>
+
+    <section class="stage" id="stage-2" aria-labelledby="s2-h" hidden>
+      <h2 id="s2-h">Inspect the patient</h2>
+      <p class="lead" id="story"></p>
+      <div class="inspect">
+        <div class="status">
+          <div class="panel-head"><h3>Health check</h3><span class="verdict" id="verdict">Healthy</span></div>
+          <ul class="checks" id="checks"></ul>
+          <h3 class="wl-h">Workloads</h3>
+          <ul class="workloads" id="workloads"></ul>
+        </div>
+        <div class="slot" id="slot-2">
+          <div class="term" id="term">
+            <div class="term-bar"><span>moad@healing-lab · namespace demo</span><span>simulated</span></div>
+            <pre class="term-out" id="out" tabindex="0" aria-live="polite"></pre>
+            <form class="term-in" id="form" autocomplete="off">
+              <label for="cmd">$</label>
+              <input id="cmd" name="cmd" spellcheck="false" placeholder="type a command, or run a suggestion below" aria-label="Command" />
+            </form>
+          </div>
+          <div class="hints" id="hints-2"></div>
+        </div>
+      </div>
+      <div class="next"><span>Seen enough?</span><button class="btn" type="button" id="to-treat">Call Nabd</button></div>
+    </section>
+
+    <section class="stage" id="stage-3" aria-labelledby="s3-h" hidden>
+      <h2 id="s3-h">Let Nabd treat it</h2>
+      <p class="lead">Every step is printed on the label as it happens. Configuration changes stop and wait for you.</p>
+      <div class="treat">
+        <ol class="steps" id="steps"></ol>
+        <Label id="demo-rx" />
+      </div>
+      <div class="next" id="next-3" hidden><button class="btn" type="button" id="to-verify">Check the result</button></div>
+    </section>
+
+    <section class="stage" id="stage-4" aria-labelledby="s4-h" hidden>
+      <h2 id="s4-h">Check the result</h2>
+      <div class="verify">
+        <div class="facts-col">
+          <h3>What Nabd changed</h3>
+          <ul class="changes" id="changes"></ul>
+          <h3>The same fault in the real lab</h3>
+          <p class="small">This page runs the rules engine only. The benchmark ran all three modes on a real kind cluster:</p>
+          <ul class="real" id="real"></ul>
+        </div>
+        <div class="slot" id="slot-4"><div class="hints" id="hints-4"></div></div>
+      </div>
+      <div class="next"><button class="btn ghost" type="button" id="again">Break something else</button></div>
+    </section>
+  </main>
+</Base>
+
+<script>
+  import { baseline, healthCheck, inject, podState, restarts, deploymentStatus, advance, clone, FAULTS } from "../lib/sim";
+  import type { Cluster } from "../lib/sim";
+  import { run, type Step } from "../lib/nabd";
+  import { kubectl, HELP } from "../lib/kubectl";
+  import { Rx } from "../lib/label";
+  import { inspectHints, verifyHints, changes, type Hint } from "../lib/guide";
+  import bench from "../data/benchmark.json";
+
+  let c: Cluster = baseline();
+  let fault = "";
+  let before: Cluster | null = null;
+  let treating = false;
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+  const out = $("out");
+  const input = $<HTMLInputElement>("cmd");
+  const rx = new Rx($("demo-rx"));
+  const history: string[] = [];
+  let hIdx = 0;
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const esc = (s: string) => s.replace(/[&<>"]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[m]!);
+
+  function print(text: string, cls = "") {
+    const span = document.createElement("span");
+    if (cls) span.className = cls;
+    span.innerHTML = esc(text) + "\n";
+    out.append(span);
+    out.scrollTop = out.scrollHeight;
+  }
+
+  // --- stages ----------------------------------------------------------------------------
+  function show(stage: number) {
+    for (let i = 1; i <= 4; i++) $(`stage-${i}`).hidden = i > stage;
+    document.querySelectorAll<HTMLElement>("#stepper li").forEach((li) => {
+      const n = Number(li.dataset.stage);
+      li.className = n < stage ? "done" : n === stage ? "current" : "";
+    });
+    $(`stage-${stage}`).scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+  }
+
+  const ICON = {
+    ok: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    bad: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5l7 7m0-7l-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>`,
+  };
+
+  function render() {
+    const checks = healthCheck(c);
+    const ok = checks.every((x) => x.ok);
+    const v = $("verdict");
+    v.textContent = ok ? "Healthy" : "Unhealthy";
+    v.dataset.ok = String(ok);
+    $("checks").innerHTML = checks
+      .map((x) => `<li class="${x.ok ? "ok" : "bad"}">${x.ok ? ICON.ok : ICON.bad}<span><b>${esc(x.label)}</b>${x.detail && !x.ok ? `<small>${esc(x.detail)}</small>` : ""}</span></li>`)
+      .join("");
+    $("workloads").innerHTML = c.deployments
+      .map((d) => {
+        const s = deploymentStatus(c, d);
+        const dots = c.pods
+          .filter((p) => p.deployment === d.name)
+          .map((p) => {
+            const st = podState(c, p);
+            const kind = st.phase === "Pending" ? "pending" : restarts(c, p) > 0 || st.crashing ? "crash" : st.ready ? "ready" : "waiting";
+            return `<i class="pod ${kind}" title="${esc(p.name)}: ${esc(st.reason ?? (st.ready ? "Running" : "not ready"))}"></i>`;
+          })
+          .join("");
+        return `<li><span class="wl-name">${d.name}</span><span class="dots">${dots || "<em>no pods</em>"}</span><span class="wl-count">${s.ready}/${d.replicas}</span></li>`;
+      })
+      .join("");
+  }
+
+  function hints(target: string, list: Hint[]) {
+    const box = $(target);
+    box.innerHTML = `<p class="hints-h">Try these, in order</p>` +
+      list.map((h, i) => `<button type="button" class="hint" data-cmd="${esc(h.cmd)}"><span class="n">${i + 1}</span><span><code>${esc(h.cmd)}</code><small>${esc(h.look)}</small></span></button>`).join("");
+    box.querySelectorAll<HTMLButtonElement>(".hint").forEach((b) =>
+      b.addEventListener("click", () => { exec(b.dataset.cmd!); b.classList.add("ran"); }),
+    );
+  }
+
+  // --- the flow --------------------------------------------------------------------------
+  function breakLab(id: string) {
+    const f = FAULTS.find((x) => x.id === id);
+    if (!f || treating) return;
+    fault = id;
+    c = baseline();
+    inject(c, id);
+    advance(c, 90);
+    out.innerHTML = "";
+    print(`$ ./lab/inject.sh ${id}`, "cmd");
+    print(`injected: ${f.story}`);
+    print(`fast-forwarded 90s so the symptoms can appear`, "dim");
+    document.querySelectorAll<HTMLElement>(".fault").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.fault === id)));
+    $("story").textContent = `${f.title}. ${f.story} Look around before calling Nabd: what would you check first?`;
+    $("slot-2").prepend($("term"));
+    hints("hints-2", inspectHints(c, id));
+    $("next-3").hidden = true;
+    rx.reset("Waiting for you to call Nabd.");
+    $("steps").innerHTML = "";
+    render();
+    show(2);
+  }
+
+  const STEP: Record<Step["kind"], string> = {
+    detect: "Detect", evidence: "Evidence", group: "Group", diagnose: "Diagnose", policy: "Formulary check", countersign: "Countersign",
+    dryrun: "Dry-run", apply: "Apply", verify: "Verify", resolved: "Resolved", escalate: "Refer to a human", rollback: "Rollback", healthy: "Healthy",
+  };
+
+  async function treat() {
+    if (treating || !fault) return;
+    treating = true;
+    ($("to-treat") as HTMLButtonElement).disabled = true;
+    show(3);
+    before = clone(c);
+    rx.begin();
+    const steps = $("steps");
+    steps.innerHTML = "";
+    print("$ python3 -m nabd run", "cmd");
+    const result = await run(c, {
+      onStep: async (s) => {
+        const li = document.createElement("li");
+        li.className = s.tone ?? "";
+        li.textContent = STEP[s.kind];
+        steps.append(li);
+        print(`[${STEP[s.kind].padEnd(16)}] ${s.lines.join("\n                   ")}`, s.tone === "bad" ? "err" : s.tone === "warn" ? "warn" : s.tone === "ok" ? "okl" : "");
+        await rx.step(s);
+        render();
+      },
+      approve: () => rx.ask(),
+    });
+    print(result.outcome === "resolved" ? `resolved: ${result.applied.join(", ")}` : `referred to a human: ${result.reason}`, result.outcome === "resolved" ? "okl" : "warn");
+    $("next-3").hidden = false;
+    ($("to-treat") as HTMLButtonElement).disabled = false;
+    treating = false;
+  }
+
+  type Mode = { ok: boolean; outcome: string; seconds: number | null };
+  const realRows = (bench as { faults?: { fault: string; modes: Record<string, Mode> }[] }).faults ?? [];
+  const MODE: Record<string, string> = { rules: "Rules only", llm: "Claude only", hybrid: "Hybrid" };
+
+  function verify() {
+    show(4);
+    const diff = before ? changes(before, c) : [];
+    $("changes").innerHTML = diff.length
+      ? diff.map((d) => `<li>${esc(d)}</li>`).join("")
+      : `<li class="none">Nothing. Nabd did not change the cluster and referred the fault to a human with its diagnosis.</li>`;
+    const real = realRows.find((r) => r.fault === fault);
+    $("real").innerHTML = real
+      ? Object.entries(MODE).map(([m, name]) => {
+          const r = real.modes[m];
+          if (!r) return "";
+          const what = r.ok ? (r.outcome === "resolved" ? `fixed and verified in ${r.seconds} s` : "correctly referred to a human") : "missed it, referred to a human";
+          return `<li class="${r.ok ? "pass" : "miss"}"><b>${name}</b><span>${what}</span></li>`;
+        }).join("")
+      : `<li>No benchmark run recorded for this fault yet.</li>`;
+    $("slot-4").prepend($("term"));
+    hints("hints-4", verifyHints(fault));
+    render();
+  }
+
+  function again() {
+    fault = "";
+    c = baseline();
+    out.innerHTML = "";
+    print("Lab reset to the healthy baseline.", "dim");
+    document.querySelectorAll(".fault").forEach((f) => f.removeAttribute("aria-pressed"));
+    show(1);
+  }
+
+  // --- terminal ----------------------------------------------------------------------------
+  function exec(line: string) {
+    const raw = line.trim();
+    if (!raw) return;
+    history.push(raw);
+    hIdx = history.length;
+    const parts = raw.split(/\s+/);
+    if (parts[0] === "clear") { out.innerHTML = ""; return; }
+    if (parts[0] === "help") { print(`$ ${raw}`, "cmd"); return print(HELP); }
+    if (parts[0] === "reset" || raw === "./lab/reset.sh") return again();
+    if (parts[0] === "faults") { print(`$ ${raw}`, "cmd"); return print(FAULTS.map((f) => `${f.id.padEnd(28)} ${f.title}`).join("\n")); }
+    if (parts[0] === "break" || parts[0] === "./lab/inject.sh") return breakLab(parts[1] ?? "");
+    if ((parts[0] === "nabd" && parts[1] === "run") || raw.startsWith("python3 -m nabd run")) return void treat();
+    print(`$ ${raw}`, "cmd");
+    if (parts[0] === "check" || raw === "./lab/check.sh") {
+      const checks = healthCheck(c);
+      checks.forEach((x) => print(`${x.ok ? "PASS" : "FAIL"}  ${x.label}${x.ok ? (x.detail ? ` (${x.detail})` : "") : ` -> ${x.detail}`}`, x.ok ? "okl" : "err"));
+      return print(checks.every((x) => x.ok) ? "STATUS: HEALTHY" : "STATUS: UNHEALTHY", checks.every((x) => x.ok) ? "okl" : "err");
+    }
+    const args = parts[0] === "kubectl" || parts[0] === "k" ? parts.slice(1) : parts;
+    print(kubectl(c, args), "tbl");
+    render();
+  }
+
+  $("form").addEventListener("submit", (e) => { e.preventDefault(); exec(input.value); input.value = ""; });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowUp" && history.length) { hIdx = Math.max(0, hIdx - 1); input.value = history[hIdx]; e.preventDefault(); }
+    if (e.key === "ArrowDown" && history.length) { hIdx = Math.min(history.length, hIdx + 1); input.value = history[hIdx] ?? ""; e.preventDefault(); }
+  });
+  document.querySelectorAll<HTMLButtonElement>(".fault").forEach((b) => b.addEventListener("click", () => breakLab(b.dataset.fault!)));
+  $("to-treat").addEventListener("click", () => void treat());
+  $("to-verify").addEventListener("click", verify);
+  $("again").addEventListener("click", again);
+  print("Pick a fault above to begin.", "dim");
+  render();
+</script>
+
+<style is:global>
+  .demo .intro { padding-block: clamp(1.5rem, 4vw, 3rem) 1.6rem; max-width: 50rem; }
+  .demo .intro h1 { font-size: clamp(2.2rem, 1.4rem + 3.2vw, 3.9rem); }
+  .demo .intro p { margin-top: 1rem; color: var(--ink-2); font-size: 1.1rem; }
+
+  .stepper { list-style: none; margin: 0 0 1.6rem; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.6rem; position: sticky; top: 0; z-index: 5; background: var(--ground); padding-block: 0.8rem; border-bottom: 1px solid var(--rule); }
+  .stepper li { display: inline-flex; align-items: center; gap: 0.55rem; font-weight: 700; color: var(--ink-2); }
+  .stepper .num { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 50%; border: 2px solid var(--rule); font: 600 0.8rem/1 var(--mono); }
+  .stepper li.current { color: var(--ink); }
+  .stepper li.current .num { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .stepper li.done { color: var(--green-deep); }
+  .stepper li.done .num { background: var(--green); border-color: var(--green); color: var(--ink); }
+
+  .stage { background: var(--paper); border-radius: 20px; box-shadow: var(--shadow); padding: clamp(1.3rem, 3.5vw, 2.4rem); margin-bottom: 1.4rem; scroll-margin-top: 4.5rem; animation: stage-in 0.5s var(--ease) both; }
+  @keyframes stage-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .stage h2 { font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.3rem); }
+  .stage .lead { margin-top: 0.6rem; color: var(--ink-2); max-width: 46em; }
+  .stage h3.group { margin: 1.8rem 0 0.8rem; font-size: 1rem; }
+  .stage h3.group small { font-weight: 500; color: var(--ink-2); margin-left: 0.5rem; }
+
+  .fault-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(14.5rem, 1fr)); gap: 0.6rem; }
+  .fault { display: grid; gap: 0.35rem; align-content: start; text-align: left; padding: 0.9rem 1rem; border-radius: 12px; border: 1.5px solid var(--rule); background: var(--ground); color: var(--ink); cursor: pointer; font-family: var(--sans); transition: border-color 0.2s var(--ease), transform 0.2s var(--ease), background 0.2s var(--ease); }
+  .fault b { font-size: 1rem; }
+  .fault span { font-size: 0.88rem; color: var(--ink-2); line-height: 1.4; }
+  .fault code { font-size: 0.7rem; color: var(--ink-2); }
+  .fault:hover { border-color: var(--ink); transform: translateY(-1px); }
+  .fault[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .fault[aria-pressed="true"] span, .fault[aria-pressed="true"] code { color: var(--green-light); }
+
+  .inspect { display: grid; grid-template-columns: minmax(15rem, 0.7fr) minmax(0, 1.6fr); gap: 1.4rem; margin-top: 1.4rem; align-items: start; }
+  .status { background: var(--ground); border-radius: 14px; padding: 1rem 1.1rem; }
+  .status h3 { font-size: 1rem; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; margin-bottom: 0.5rem; }
+  .verdict { font: 600 0.72rem/1 var(--mono); text-transform: uppercase; letter-spacing: 0.08em; padding: 0.35rem 0.5rem; border-radius: 5px; background: var(--ground-deep); color: var(--green-deep); }
+  .verdict[data-ok="false"] { background: var(--warn-paper); color: var(--bad); }
+  .checks, .workloads, .steps, .changes, .real { list-style: none; margin: 0; padding: 0; }
+  .checks li { display: flex; gap: 0.5rem; padding: 0.32rem 0; font-size: 0.92rem; }
+  .checks svg { width: 1rem; height: 1rem; flex: none; margin-top: 0.15rem; }
+  .checks .ok { color: var(--green-deep); }
+  .checks .bad { color: var(--bad); }
+  .checks b { font-weight: 600; color: var(--ink); }
+  .checks small { display: block; color: var(--ink-2); font: 400 0.76rem/1.4 var(--mono); overflow-wrap: anywhere; }
+  .wl-h { margin-top: 1rem; }
+  .workloads li { display: grid; grid-template-columns: 4.5rem 1fr auto; align-items: center; gap: 0.6rem; padding: 0.45rem 0; border-bottom: 1px solid var(--rule); }
+  .wl-name { font-family: var(--mono); font-size: 0.88rem; }
+  .wl-count { font: 600 0.82rem/1 var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .dots { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+  .dots em { font-size: 0.82rem; color: var(--bad); font-style: normal; }
+  .pod { width: 0.85rem; height: 0.85rem; border-radius: 50%; display: inline-block; }
+  .pod.ready { background: var(--green); }
+  .pod.waiting { background: #e3a21b; }
+  .pod.crash { background: var(--bad); }
+  .pod.pending { border: 2px dashed var(--ink-2); }
+
+  .term { background: var(--ink); color: #dcefe3; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+  .term-bar { display: flex; justify-content: space-between; padding: 0.7rem 1rem; font: 600 0.72rem/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--green-light); border-bottom: 1px solid rgb(255 255 255 / 0.08); }
+  .term-out { margin: 0; padding: 1rem; font: 400 0.8rem/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; height: 22rem; }
+  .term-out .cmd { color: #ffffff; font-weight: 600; }
+  .term-out .err { color: #ff9b8f; }
+  .term-out .warn { color: #ffc27a; }
+  .term-out .okl { color: #8fe3a8; }
+  .term-out .dim { color: #8aa896; }
+  .term-out .tbl { display: block; white-space: pre; overflow-x: auto; overflow-wrap: normal; }
+  .term-out::selection, .term-out *::selection { background: var(--green); color: var(--ink); }
+  .term-in { display: flex; align-items: center; gap: 0.6rem; padding: 0.8rem 1rem; border-top: 1px solid rgb(255 255 255 / 0.08); }
+  .term-in label { font: 600 0.9rem/1 var(--mono); color: var(--green-light); }
+  .term-in input { flex: 1; min-width: 0; background: transparent; border: 0; color: #ffffff; font: 400 0.9rem/1.4 var(--mono); caret-color: var(--green-light); }
+  .term-in input:focus { outline: none; }
+  .term-in:focus-within { box-shadow: inset 0 0 0 2px var(--green); }
+  .term-in input::placeholder { color: #7d9888; }
+
+  .hints { margin-top: 1rem; display: grid; gap: 0.5rem; }
+  .hints-h { font-weight: 700; font-size: 0.92rem; }
+  .hint { display: flex; gap: 0.8rem; align-items: flex-start; text-align: left; padding: 0.75rem 0.9rem; border-radius: 12px; border: 1.5px solid var(--rule); background: var(--paper); cursor: pointer; color: var(--ink); font-family: var(--sans); transition: border-color 0.2s var(--ease); }
+  .hint:hover { border-color: var(--ink); }
+  .hint .n { display: inline-grid; place-items: center; flex: none; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--ground-deep); font: 600 0.78rem/1 var(--mono); color: var(--green-deep); }
+  .hint code { display: block; font-size: 0.86rem; font-weight: 600; }
+  .hint small { display: block; margin-top: 0.2rem; color: var(--ink-2); font-size: 0.86rem; }
+  .hint.ran { border-color: var(--green); }
+  .hint.ran .n { background: var(--green); color: var(--ink); }
+
+  .next { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; margin-top: 1.6rem; padding-top: 1.2rem; border-top: 1px solid var(--rule); }
+  .next span { color: var(--ink-2); }
+
+  .treat { display: grid; grid-template-columns: minmax(11rem, 0.45fr) minmax(0, 1.2fr); gap: 1.6rem; margin-top: 1.4rem; align-items: start; }
+  .steps { display: grid; gap: 0.35rem; counter-reset: step; }
+  .steps li { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.75rem; border-radius: 10px; background: var(--ground); font-weight: 700; font-size: 0.92rem; animation: in 0.35s var(--ease) both; }
+  .steps li::before { content: ""; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--green); flex: none; }
+  .steps li.bad::before { background: var(--bad); }
+  .steps li.warn::before { background: #e3a21b; }
+  .steps li.ok { background: var(--ground-deep); }
+  @keyframes in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+
+  .verify { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 1.6rem; margin-top: 1.2rem; align-items: start; }
+  .facts-col h3 { font-size: 1.05rem; margin: 0 0 0.6rem; }
+  .facts-col h3 + .small { margin-top: -0.3rem; }
+  .facts-col .small { color: var(--ink-2); font-size: 0.9rem; margin-bottom: 0.6rem; }
+  .changes { margin-bottom: 1.8rem; }
+  .changes li { font: 400 0.86rem/1.5 var(--mono); padding: 0.55rem 0.7rem; border-radius: 8px; background: var(--ground); margin-bottom: 0.35rem; overflow-wrap: anywhere; }
+  .changes li.none { font-family: var(--sans); font-size: 0.95rem; }
+  .real li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.55rem 0; border-bottom: 1px solid var(--rule); font-size: 0.95rem; }
+  .real li span { color: var(--green-deep); font-weight: 600; text-align: right; }
+  .real li.miss span { color: var(--warn); }
+
+  @media (max-width: 640px) {
+    .stepper { gap: 0.4rem 1rem; font-size: 0.88rem; }
+    .stepper .num { width: 1.45rem; height: 1.45rem; }
+    .stepper li:not(.current) .label { display: none; }
+  }
+  @media (max-width: 900px) {
+    .inspect, .treat, .verify { grid-template-columns: 1fr; }
+    .steps { display: flex; flex-wrap: wrap; }
+    .steps li { padding: 0.35rem 0.6rem; font-size: 0.82rem; }
+    .term-out { height: 18rem; font-size: 0.74rem; }
+  }
+  @media (prefers-reduced-motion: reduce) { .stage, .steps li { animation: none; } }
+</style>

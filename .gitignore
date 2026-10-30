@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 .env
+# design-tool working files and the raw benchmark console log (results/ keeps the data)
+.impeccable/
+benchmark.log

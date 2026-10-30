@@ -1,0 +1,283 @@
+---
+import Base from "../layouts/Base.astro";
+import Label from "../components/Label.astro";
+import { FORMULARY } from "../lib/nabd";
+import bench from "../data/benchmark.json";
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+type Summary = { mode: string; split: string; ok: number; total: number; diagnosisRight: number; avgSeconds: number | null; unsafe: number; llmCalls: number };
+type FaultRow = { fault: string; split: string; expected: string; modes: Record<string, { ok: boolean; outcome: string; seconds: number | null }> };
+const done = (bench as { status: string }).status === "done";
+const summary: Summary[] = done ? (bench as unknown as { summary: Summary[] }).summary : [];
+const faults: FaultRow[] = done ? (bench as unknown as { faults: FaultRow[] }).faults : [];
+const modes = ["rules", "llm", "hybrid"];
+const modeName: Record<string, string> = { rules: "Rules only", llm: "Claude only", hybrid: "Hybrid" };
+const cell = (mode: string, split: string) => summary.find((s) => s.mode === mode && s.split === split);
+
+const steps = [
+  ["Detect", "The lab's own health check fails: an HTTP call from inside the cluster, rollout state, restarts."],
+  ["Evidence", "Pods, events, logs, services, and the names of ConfigMap and Secret keys. Never secret values."],
+  ["Diagnose", "Rules first. Claude only when the rules find nothing, and its answer must cite the evidence."],
+  ["Formulary check", "Is the fix one of the five actions, in the allowed namespace, within bounds?"],
+  ["Countersign", "Changes to configuration or networking wait for a human to approve."],
+  ["Dry-run", "The Kubernetes API server validates the exact change without applying it."],
+  ["Apply", "The previous state is journaled to disk first, so an interruption can be undone."],
+  ["Verify", "The independent health check must pass. If not, Nabd rolls its change back and refers you."],
+];
+const warnings = [
+  ["Closed formulary", "Five actions, defined in code. The model picks one; it never writes a kubectl command. Secrets, quotas, namespaces and nodes are not stocked at all."],
+  ["Countersignature", "Scaling, rolling back and restarting run on their own. Editing a Service or a ConfigMap waits for a person."],
+  ["Evidence over instructions", "Logs are written by workloads, so they are treated as untrusted. Any value Claude proposes, a replica count, a selector, a port, must match what the cluster itself shows."],
+  ["Nothing half-applied", "The before-state is written to a journal before every change. Ctrl+C, a crash or a power cut is undone, immediately or on the next run."],
+  ["One failure, one treatment", "Several symptoms of one fault are grouped into a single incident, and only one Nabd run may act on a namespace at a time."],
+  ["Knows when to refer", "A missing Secret, an admin quota, or a dependency outside the cluster is handed to a human with the diagnosis. Nabd never retries the same fix twice."],
+];
+---
+<Base title="Nabd · Kubernetes recovery with a closed formulary" description="Nabd (نبض) diagnoses failing Kubernetes workloads and treats them with five pre-approved actions, behind a policy gate, a dry-run and an automatic rollback." page="home">
+  <main>
+    <section class="hero wrap">
+      <div class="pitch">
+        <h1>It can only dispense what’s on the formulary.</h1>
+        <p class="lede">
+          Nabd <span class="ar" lang="ar">نبض</span> diagnoses failing Kubernetes workloads and treats them with five
+          pre-approved actions. Anything that edits configuration waits for a human signature, and anything it cannot treat
+          safely is referred to a human.
+        </p>
+        <div class="ctas">
+          <a class="btn" href={`${base}/demo/`}>
+            Open the live demo
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11m-4-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="btn ghost" href="#results">See the results</a>
+        </div>
+      </div>
+      <div class="counter">
+        <div class="tryline">
+          <span>Try a fault</span>
+          <div class="chips" role="group" aria-label="Faults">
+            <button class="chip" type="button" data-fault="dev-01-image-typo">Bad image tag</button>
+            <button class="chip" type="button" data-fault="dev-09-scaled-to-zero">Scaled to zero</button>
+            <button class="chip" type="button" data-fault="dev-06-selector-mismatch">Service points nowhere</button>
+            <button class="chip" type="button" data-fault="dev-08-missing-secret">Secret deleted</button>
+          </div>
+        </div>
+        <Label id="hero-rx" />
+        <p class="note">Nabd’s real rules running against a simulated copy of the lab, in your browser.</p>
+      </div>
+    </section>
+
+    <section class="formulary wrap" aria-labelledby="formulary-h">
+      <h2 id="formulary-h" class="visually-hidden">The formulary</h2>
+      <ul>
+        {FORMULARY.map((f) => (
+          <li>
+            <code>{f.action}</code>
+            <span class={`class ${f.risk}`}>{f.risk === "low" ? "Automatic" : "Countersign"}</span>
+          </li>
+        ))}
+        <li class="none"><span>Secrets · quotas · namespaces · nodes</span><span class="class none">Not stocked</span></li>
+      </ul>
+    </section>
+
+    <section id="how" class="how wrap">
+      <div class="head">
+        <h2>How a fault gets treated</h2>
+        <p>The same eight steps every time, written out in the log as they happen. Steps four to six are where safety decides, not the model.</p>
+      </div>
+      <ol>
+        {steps.map(([name, text], i) => (
+          <li class={i >= 3 && i <= 5 ? "gate" : ""}>
+            <span class="n">{i + 1}</span>
+            <h3>{name}</h3>
+            <p>{text}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <section class="leaflet wrap" aria-labelledby="warn-h">
+      <h2 id="warn-h">Warnings and precautions</h2>
+      <dl>
+        {warnings.map(([t, d]) => (
+          <div><dt>{t}</dt><dd>{d}</dd></div>
+        ))}
+      </dl>
+    </section>
+
+    <section id="results" class="results wrap" aria-labelledby="results-h">
+      <div class="head">
+        <h2 id="results-h">Measured on faults it was never tuned on</h2>
+        <p>
+          A local kind cluster, 14 reproducible faults: 9 used while building, 5 held out until the final run. Each run resets the
+          lab, injects one fault, lets Nabd work, and scores it with the independent health check.
+        </p>
+      </div>
+      {done ? (
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">Mode</th><th scope="col">Dev faults handled</th><th scope="col">Held-out handled</th><th scope="col">Avg. recovery</th><th scope="col">Unsafe actions</th><th scope="col">LLM calls</th></tr>
+            </thead>
+            <tbody>
+              {modes.map((m) => {
+                const d = cell(m, "dev");
+                const h = cell(m, "heldout");
+                const secs = [d, h].flatMap((x) => (x && x.avgSeconds != null ? [x.avgSeconds] : []));
+                return (
+                  <tr>
+                    <th scope="row">{modeName[m]}</th>
+                    <td>{d ? `${d.ok} / ${d.total}` : "–"}</td>
+                    <td>{h ? `${h.ok} / ${h.total}` : "–"}</td>
+                    <td>{secs.length ? `${(secs.reduce((a, b) => a + b, 0) / secs.length).toFixed(1)} s` : "–"}</td>
+                    <td>{(d?.unsafe ?? 0) + (h?.unsafe ?? 0)}</td>
+                    <td>{(d?.llmCalls ?? 0) + (h?.llmCalls ?? 0)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <details>
+            <summary>Every fault, every mode</summary>
+            <table class="per-fault">
+              <thead><tr><th scope="col">Fault</th><th scope="col">Expected</th>{modes.map((m) => <th scope="col">{modeName[m]}</th>)}</tr></thead>
+              <tbody>
+                {faults.map((f) => (
+                  <tr>
+                    <th scope="row"><code>{f.fault}</code></th>
+                    <td>{f.expected === "fix" ? "fix" : "refer"}</td>
+                    {modes.map((m) => {
+                      const r = f.modes[m];
+                      return <td class={r ? (r.ok ? "pass" : "miss") : ""}>{r ? `${r.ok ? "handled" : "missed"} · ${r.outcome}` : "–"}</td>;
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </details>
+        </div>
+      ) : (
+        <div class="pending">
+          <p><strong>The full benchmark is running.</strong> Results appear here as soon as it finishes; nothing on this page is estimated.</p>
+        </div>
+      )}
+      <ul class="facts">
+        <li><b>9 / 9</b> dev faults diagnosed correctly by the rules alone</li>
+        <li><b>26</b> offline tests for the policy gate, injection guard, journal and grouping</li>
+        <li><b>“Handled”</b> means fixed and verified, or correctly referred to a human without touching anything</li>
+      </ul>
+    </section>
+
+    <section class="limits wrap" aria-labelledby="limits-h">
+      <h2 id="limits-h">Known limits</h2>
+      <ul>
+        <li>Tested in a local three-node kind cluster with three services, not in production.</li>
+        <li>The browser demo is a simulation of that lab running Nabd’s rules engine. Claude mode needs an API key and runs from the command line.</li>
+        <li>Faults that only show after probes fail, like a wrong liveness port, take about a minute and a half to appear.</li>
+        <li>Spotting a cause outside the cluster is a pattern match on logs, not a dependency map.</li>
+      </ul>
+    </section>
+
+    <section class="close wrap">
+      <h2>Break the lab yourself.</h2>
+      <p>Fourteen faults, a kubectl prompt, and Nabd one button away. No cluster to install.</p>
+      <a class="btn" href={`${base}/demo/`}>Open the live demo</a>
+    </section>
+  </main>
+</Base>
+
+<script>
+  import { baseline, inject } from "../lib/sim";
+  import { run } from "../lib/nabd";
+  import { Rx } from "../lib/label";
+
+  const rx = new Rx(document.getElementById("hero-rx")!);
+  const chips = [...document.querySelectorAll<HTMLButtonElement>(".chip[data-fault]")];
+  let busy = false;
+
+  async function treat(id: string) {
+    if (busy) return;
+    busy = true;
+    chips.forEach((c) => { c.setAttribute("aria-pressed", String(c.dataset.fault === id)); c.disabled = true; });
+    const c = baseline();
+    inject(c, id);
+    rx.begin();
+    await run(c, { onStep: (s) => rx.step(s), approve: () => rx.ask() });
+    chips.forEach((c) => (c.disabled = false));
+    busy = false;
+  }
+  chips.forEach((chip) => chip.addEventListener("click", () => treat(chip.dataset.fault!)));
+  setTimeout(() => treat("dev-01-image-typo"), 500);
+</script>
+
+<style>
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .hero { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr); gap: clamp(2rem, 5vw, 4.5rem); align-items: start; padding-block: clamp(2rem, 5vw, 4.5rem) 2.5rem; }
+  .pitch { padding-top: clamp(0rem, 2vw, 1.5rem); }
+  .lede { margin-top: 1.4rem; font-size: clamp(1.1rem, 1rem + 0.4vw, 1.3rem); max-width: 34em; color: var(--ink-2); }
+  .lede .ar { color: var(--green-deep); }
+  .ctas { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 2rem; }
+  .tryline { display: flex; flex-wrap: wrap; align-items: center; gap: 0.7rem; margin-bottom: 1rem; }
+  .tryline > span { font-weight: 700; font-size: 0.95rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+  .note { margin-top: 0.9rem; font-size: 0.88rem; color: var(--ink-2); }
+
+  .formulary ul { list-style: none; margin: 0; padding: 1rem 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.6rem; border-block: 1px solid var(--rule); }
+  .formulary li { display: inline-flex; align-items: center; gap: 0.55rem; padding: 0.35rem 0; }
+  .formulary code { font-size: 0.86rem; }
+  .class { font: 600 0.68rem/1 var(--mono); text-transform: uppercase; letter-spacing: 0.08em; padding: 0.3rem 0.45rem; border-radius: 5px; background: var(--ground-deep); color: var(--green-deep); }
+  .class.medium { background: var(--warn-paper); color: var(--warn); }
+  .class.none { background: transparent; border: 1px solid var(--rule); color: var(--ink-2); }
+  .formulary li.none span:first-child { color: var(--ink-2); font-size: 0.92rem; }
+
+  .head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem 3rem; align-items: end; margin-bottom: 2.4rem; }
+  .head p { color: var(--ink-2); max-width: 36em; }
+  .how { padding-top: clamp(4.5rem, 9vw, 7.5rem); }
+  .how ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 2px solid var(--ink); }
+  .how li { padding: 1.3rem 1.3rem 1.6rem 0; border-bottom: 1px solid var(--rule); }
+  .how li:not(:nth-child(4n)) { border-right: 1px solid var(--rule); }
+  .how li:not(:nth-child(4n + 1)) { padding-left: 1.3rem; }
+  .how .n { font: 600 0.8rem/1 var(--mono); color: var(--ink-2); }
+  .how h3 { margin: 0.6rem 0 0.45rem; }
+  .how p { font-size: 0.95rem; color: var(--ink-2); }
+  .how li.gate { background: var(--paper); }
+  .how li.gate .n { color: var(--green-deep); }
+
+  .leaflet { margin-top: clamp(4.5rem, 9vw, 7.5rem); display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr); gap: 2rem 3rem; background: var(--paper); border-radius: 18px; padding: clamp(1.6rem, 4vw, 3.2rem); box-shadow: var(--shadow); }
+  .leaflet dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.6rem 2.4rem; }
+  .leaflet dt { font-weight: 760; font-size: 1.08rem; margin-bottom: 0.35rem; }
+  .leaflet dd { margin: 0; color: var(--ink-2); font-size: 0.97rem; }
+
+  .results { padding-top: clamp(4.5rem, 9vw, 7.5rem); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.98rem; }
+  th, td { text-align: left; padding: 0.85rem 1rem 0.85rem 0; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  thead th { font: 600 0.72rem/1.2 var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); border-bottom: 2px solid var(--ink); }
+  tbody th { font-weight: 720; }
+  td.pass { color: var(--green-deep); }
+  td.miss { color: var(--warn); font-weight: 600; }
+  details { margin-top: 1.4rem; }
+  summary { cursor: pointer; font-weight: 700; }
+  .per-fault { margin-top: 1rem; font-size: 0.9rem; }
+  .pending { background: var(--paper); border: 2px dashed var(--rule); border-radius: 14px; padding: 1.6rem; max-width: 46rem; }
+  .pending p { color: var(--ink-2); }
+  .facts { list-style: none; padding: 0; margin: 2.2rem 0 0; display: flex; flex-wrap: wrap; gap: 1rem 2.6rem; color: var(--ink-2); }
+  .facts b { color: var(--ink); font-size: 1.15rem; margin-right: 0.3rem; }
+
+  .limits { padding-top: clamp(4.5rem, 9vw, 7.5rem); display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr); gap: 1rem 3rem; }
+  .limits ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.7rem; color: var(--ink-2); }
+
+  .close { margin-top: clamp(4.5rem, 9vw, 7.5rem); text-align: center; display: grid; justify-items: center; gap: 1rem; padding: clamp(2.5rem, 6vw, 4.5rem) 1rem; background: var(--green-light); border-radius: 22px; }
+  .close p { color: var(--ink-2); max-width: 32em; margin-bottom: 0.6rem; }
+
+  @media (max-width: 960px) {
+    .hero, .head, .leaflet, .limits { grid-template-columns: 1fr; }
+    .how ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .how li:nth-child(n) { border-right: 0; padding-left: 0; }
+    .how li:nth-child(odd) { border-right: 1px solid var(--rule); }
+    .how li:nth-child(even) { padding-left: 1.3rem; }
+  }
+  @media (max-width: 560px) {
+    .how ol, .leaflet dl { grid-template-columns: 1fr; }
+    .how li:nth-child(n) { border-right: 0; padding-left: 0; }
+  }
+</style>

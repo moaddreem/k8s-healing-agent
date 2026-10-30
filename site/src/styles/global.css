@@ -1,0 +1,128 @@
+/* Nabd: the dispensary. Mint ground, white label stock, pharmacy-green ink, one warning orange. */
+:root {
+  --ground: #e9f6ee;
+  --ground-deep: #d3ebda;
+  --paper: #ffffff;
+  --ink: #0f2e1c;
+  --ink-2: #395845;
+  --green: #3fa565;
+  --green-light: #a8dfba;
+  --green-deep: #1c6b3c;
+  --warn: #a83f0c;
+  --warn-paper: #fdeee4;
+  --bad: #b3261e;
+  --rule: rgb(15 46 28 / 0.14);
+  --shadow: 0 1px 0 rgb(15 46 28 / 0.06), 0 22px 44px -22px rgb(15 46 28 / 0.38);
+
+  --sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+  --ar: "Marhey Variable", "Marhey", sans-serif;
+
+  --gutter: clamp(1.1rem, 4vw, 3rem);
+  --wrap: 1180px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scrollbar-color: var(--green) var(--ground-deep); }
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  caret-color: var(--green-deep);
+}
+::selection { background: var(--green-light); color: var(--ink); }
+:focus-visible { outline: 3px solid var(--green-deep); outline-offset: 3px; border-radius: 6px; }
+
+a { color: inherit; text-underline-offset: 0.22em; text-decoration-thickness: 1.5px; text-decoration-color: var(--green); }
+a:hover { text-decoration-color: var(--ink); }
+img, svg { max-width: 100%; }
+code, kbd, .mono { font-family: var(--mono); font-size: 0.92em; }
+table { font-variant-numeric: tabular-nums; }
+
+h1, h2, h3 { margin: 0; text-wrap: balance; letter-spacing: -0.02em; }
+h1 { font-size: clamp(2.5rem, 1.5rem + 4.2vw, 5.1rem); line-height: 1.02; font-weight: 780; }
+h2 { font-size: clamp(1.9rem, 1.3rem + 2.1vw, 3.1rem); line-height: 1.06; font-weight: 740; }
+h3 { font-size: 1.2rem; line-height: 1.25; font-weight: 720; letter-spacing: -0.01em; }
+p { margin: 0; }
+
+.wrap { width: min(var(--wrap), 100% - 2 * var(--gutter)); margin-inline: auto; }
+.ar { font-family: var(--ar); font-weight: 700; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  padding: 0.95rem 1.45rem; border-radius: 999px;
+  font: 700 1.02rem/1 var(--sans); text-decoration: none; cursor: pointer;
+  border: 2px solid var(--ink); background: var(--ink); color: var(--paper);
+  transition: background 0.2s var(--ease), color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+.btn:hover { background: var(--green-deep); border-color: var(--green-deep); }
+.btn:active { transform: translateY(1px); }
+.btn.ghost { background: transparent; color: var(--ink); }
+.btn.ghost:hover { background: var(--paper); border-color: var(--ink); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn svg { width: 1.1em; height: 1.1em; }
+
+.chip {
+  font: 600 0.92rem/1 var(--sans); padding: 0.6rem 0.9rem; border-radius: 999px; cursor: pointer;
+  border: 1.5px solid var(--rule); background: var(--paper); color: var(--ink);
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.chip:hover { border-color: var(--ink); }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+/* ---- the dispensing label -------------------------------------------------------------- */
+.rx { background: var(--paper); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; container-type: inline-size; }
+.rx-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+  background: var(--green); color: var(--ink); padding: 0.7rem 1.15rem;
+  font: 600 0.78rem/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase;
+}
+.rx-body { padding: 0.6rem 1.15rem 1.1rem; min-height: 14rem; }
+.rx-row {
+  display: grid; grid-template-columns: 7.2rem 1fr; gap: 0.9rem; padding: 0.62rem 0;
+  border-bottom: 1px solid var(--rule); font: 400 0.88rem/1.45 var(--mono);
+}
+.rx-row dt { color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.72rem; padding-top: 0.12rem; }
+.rx-row dd { margin: 0; overflow-wrap: anywhere; }
+.rx-row.warn dd { color: var(--warn); font-weight: 600; }
+.rx-row.ok dd { color: var(--green-deep); font-weight: 600; }
+.rx-row.print { animation: print 0.42s var(--ease) both; }
+@keyframes print {
+  from { clip-path: inset(0 0 100% 0); transform: translateY(-6px); }
+  to { clip-path: inset(0 0 0 0); transform: none; }
+}
+.rx-empty { color: var(--ink-2); font: 400 0.92rem/1.5 var(--mono); padding: 1.2rem 0; }
+@container (max-width: 27rem) {
+  .rx-row { grid-template-columns: 1fr; gap: 0.15rem; }
+}
+.rx-sign {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.8rem;
+  margin-top: 0.9rem; padding-top: 0.9rem; border-top: 2px dashed var(--rule);
+  font: 600 0.8rem/1.3 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2);
+}
+.rx-sign[data-state="needed"] { color: var(--warn); border-top-color: var(--warn); }
+.rx-sign .actions { display: flex; gap: 0.5rem; }
+.rx-sign .actions button { font: 700 0.85rem/1 var(--sans); text-transform: none; letter-spacing: 0; padding: 0.55rem 0.9rem; border-radius: 999px; cursor: pointer; border: 2px solid var(--ink); background: var(--ink); color: var(--paper); }
+.rx-sign .actions button.decline { background: transparent; color: var(--ink); }
+.stamp {
+  display: inline-block; padding: 0.35rem 0.7rem; border: 2.5px solid currentColor; border-radius: 6px;
+  font: 700 0.85rem/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase;
+  transform: rotate(-4deg); animation: stamp 0.5s var(--ease) both;
+}
+.stamp.ok { color: var(--green-deep); }
+.stamp.warn { color: var(--warn); }
+@keyframes stamp { from { transform: rotate(-12deg) scale(1.5); opacity: 0; } to { transform: rotate(-4deg) scale(1); opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .rx-row.print, .stamp { animation: none; }
+}

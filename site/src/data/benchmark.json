@@ -1,0 +1,376 @@
+{
+  "status": "done",
+  "source": "20261030-190400.json",
+  "summary": [
+    {
+      "mode": "rules",
+      "split": "dev",
+      "ok": 9,
+      "total": 9,
+      "diagnosisRight": 9,
+      "avgSeconds": 12.3,
+      "unsafe": 0,
+      "llmCalls": 0
+    },
+    {
+      "mode": "rules",
+      "split": "heldout",
+      "ok": 4,
+      "total": 5,
+      "diagnosisRight": 2,
+      "avgSeconds": 21.8,
+      "unsafe": 0,
+      "llmCalls": 0
+    },
+    {
+      "mode": "llm",
+      "split": "dev",
+      "ok": 7,
+      "total": 9,
+      "diagnosisRight": 9,
+      "avgSeconds": 17.0,
+      "unsafe": 0,
+      "llmCalls": 10
+    },
+    {
+      "mode": "llm",
+      "split": "heldout",
+      "ok": 5,
+      "total": 5,
+      "diagnosisRight": 4,
+      "avgSeconds": 24.5,
+      "unsafe": 0,
+      "llmCalls": 6
+    },
+    {
+      "mode": "hybrid",
+      "split": "dev",
+      "ok": 9,
+      "total": 9,
+      "diagnosisRight": 9,
+      "avgSeconds": 14.4,
+      "unsafe": 0,
+      "llmCalls": 0
+    },
+    {
+      "mode": "hybrid",
+      "split": "heldout",
+      "ok": 5,
+      "total": 5,
+      "diagnosisRight": 4,
+      "avgSeconds": 19.9,
+      "unsafe": 0,
+      "llmCalls": 2
+    }
+  ],
+  "faults": [
+    {
+      "fault": "dev-01-image-typo",
+      "split": "dev",
+      "expected": "fix",
+      "modes": {
+        "rules": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 3.1
+        },
+        "llm": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 6.7
+        },
+        "hybrid": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 4.6
+        }
+      }
+    },
+    {
+      "fault": "dev-02-configmap-key-typo",
+      "split": "dev",
+      "expected": "fix",
+      "modes": {
+        "rules": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 8.7
+        },
+        "llm": {
+          "ok": false,
+          "outcome": "escalated",
+          "seconds": 76.8
+        },
+        "hybrid": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 14.0
+        }
+      }
+    },
+    {
+      "fault": "dev-03-oom",
+      "split": "dev",
+      "expected": "fix",
+      "modes": {
+        "rules": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 8.1
+        },
+        "llm": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 13.0
+        },
+        "hybrid": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 6.3
+        }
+      }
+    },
+    {
+      "fault": "dev-04-liveness-port",
+      "split": "dev",
+      "expected": "fix",
+      "modes": {
+        "rules": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 65.9
+        },
+        "llm": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 65.1
+        },
+        "hybrid": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 67.7
+        }
+      }
+    },
+    {
+      "fault": "dev-05-readiness-path",
+      "split": "dev",
+      "expected": "fix",
+      "modes": {
+        "rules": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 3.2
+        },
+        "llm": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 7.8
+        },
+        "hybrid": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 6.6
+        }
+      }
+    },
+    {
+      "fault": "dev-06-selector-mismatch",
+      "split": "dev",
+      "expected": "fix",
+      "modes": {
+        "rules": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 5.1
+        },
+        "llm": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 10.2
+        },
+        "hybrid": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 6.2
+        }
+      }
+    },
+    {
+      "fault": "dev-07-cpu-request",
+      "split": "dev",
+      "expected": "fix",
+      "modes": {
+        "rules": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 3.1
+        },
+        "llm": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 10.2
+        },
+        "hybrid": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 6.4
+        }
+      }
+    },
+    {
+      "fault": "dev-08-missing-secret",
+      "split": "dev",
+      "expected": "escalate",
+      "modes": {
+        "rules": {
+          "ok": true,
+          "outcome": "escalated",
+          "seconds": 2.0
+        },
+        "llm": {
+          "ok": true,
+          "outcome": "escalated",
+          "seconds": 6.3
+        },
+        "hybrid": {
+          "ok": true,
+          "outcome": "escalated",
+          "seconds": 3.7
+        }
+      }
+    },
+    {
+      "fault": "dev-09-scaled-to-zero",
+      "split": "dev",
+      "expected": "fix",
+      "modes": {
+        "rules": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 11.9
+        },
+        "llm": {
+          "ok": false,
+          "outcome": "escalated",
+          "seconds": 12.2
+        },
+        "hybrid": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 14.4
+        }
+      }
+    },
+    {
+      "fault": "ho-01-target-port",
+      "split": "heldout",
+      "expected": "fix",
+      "modes": {
+        "rules": {
+          "ok": false,
+          "outcome": "escalated",
+          "seconds": 2.0
+        },
+        "llm": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 7.9
+        },
+        "hybrid": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 9.8
+        }
+      }
+    },
+    {
+      "fault": "ho-02-bad-command",
+      "split": "heldout",
+      "expected": "fix",
+      "modes": {
+        "rules": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 8.3
+        },
+        "llm": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 8.2
+        },
+        "hybrid": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 5.4
+        }
+      }
+    },
+    {
+      "fault": "ho-03-node-selector",
+      "split": "heldout",
+      "expected": "fix",
+      "modes": {
+        "rules": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 3.9
+        },
+        "llm": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 7.4
+        },
+        "hybrid": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 3.9
+        }
+      }
+    },
+    {
+      "fault": "ho-04-quota",
+      "split": "heldout",
+      "expected": "escalate",
+      "modes": {
+        "rules": {
+          "ok": true,
+          "outcome": "escalated",
+          "seconds": 2.1
+        },
+        "llm": {
+          "ok": true,
+          "outcome": "escalated",
+          "seconds": 14.0
+        },
+        "hybrid": {
+          "ok": true,
+          "outcome": "escalated",
+          "seconds": 7.6
+        }
+      }
+    },
+    {
+      "fault": "ho-05-double-fault",
+      "split": "heldout",
+      "expected": "fix",
+      "modes": {
+        "rules": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 73.0
+        },
+        "llm": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 84.8
+        },
+        "hybrid": {
+          "ok": true,
+          "outcome": "resolved",
+          "seconds": 72.6
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+---
+import "@fontsource-variable/atkinson-hyperlegible-next";
+import "@fontsource/jetbrains-mono/400.css";
+import "@fontsource/jetbrains-mono/600.css";
+import "@fontsource-variable/marhey";
+import "../styles/global.css";
+import Mark from "../components/Mark.astro";
+
+interface Props { title: string; description: string; page: "home" | "demo" }
+const { title, description, page } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const repo = "https://github.com/moaddreem/k8s-healing-agent";
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#e9f6ee" />
+    <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+  </head>
+  <body data-page={page}>
+    <header class="top wrap">
+      <a class="brand" href={`${base}/`} aria-label="Nabd home">
+        <Mark />
+        <span class="name">Nabd</span>
+        <span class="ar" lang="ar">نبض</span>
+      </a>
+      <nav aria-label="Main">
+        <a href={`${base}/demo/`} aria-current={page === "demo" ? "page" : undefined}>Live demo</a>
+        <a href={`${base}/#how`}>How it works</a>
+        <a href={`${base}/#results`}>Results</a>
+        <a href={repo}>GitHub</a>
+      </nav>
+    </header>
+    <slot />
+    <footer class="foot wrap">
+      <div class="brand small"><Mark size={26} /><span class="name">Nabd</span><span class="ar" lang="ar">نبض</span></div>
+      <p>Built by Muath for the HUMAIN × Misk Future AI Builders hackathon, Challenge 1: Agentic Recovery of a Failing System.</p>
+      <p><a href={repo}>Source, lab and benchmark on GitHub</a></p>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding-block: 1.4rem; flex-wrap: wrap; }
+  .brand { display: inline-flex; align-items: center; gap: 0.6rem; text-decoration: none; }
+  .brand .name { font-weight: 780; font-size: 1.35rem; letter-spacing: -0.02em; }
+  .brand .ar { font-size: 1.3rem; color: var(--green-deep); transform: translateY(-1px); }
+  nav { display: flex; gap: clamp(0.9rem, 2.4vw, 2rem); flex-wrap: wrap; }
+  nav a { text-decoration: none; font-weight: 600; padding-block: 0.3rem; border-bottom: 2px solid transparent; }
+  nav a:hover, nav a[aria-current="page"] { border-bottom-color: var(--green); }
+  .foot { display: grid; gap: 0.6rem; padding-block: 3rem 3.5rem; border-top: 1px solid var(--rule); margin-top: 5rem; color: var(--ink-2); font-size: 0.95rem; }
+  .brand.small .name { font-size: 1.1rem; color: var(--ink); }
+  .brand.small .ar { font-size: 1.05rem; }
+</style>
