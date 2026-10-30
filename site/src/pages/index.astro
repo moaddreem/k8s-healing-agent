@@ -1,186 +1,266 @@
 ---
 import Base from "../layouts/Base.astro";
 import Label from "../components/Label.astro";
-import { FORMULARY } from "../lib/nabd";
 import bench from "../data/benchmark.json";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-type Summary = { mode: string; split: string; ok: number; total: number; diagnosisRight: number; avgSeconds: number | null; unsafe: number; llmCalls: number };
+const repo = "https://github.com/moaddreem/k8s-healing-agent";
+type Summary = { mode: string; split: string; ok: number; total: number; avgSeconds: number | null; unsafe: number; llmCalls: number };
 type FaultRow = { fault: string; split: string; expected: string; modes: Record<string, { ok: boolean; outcome: string; seconds: number | null }> };
 const done = (bench as { status: string }).status === "done";
 const summary: Summary[] = done ? (bench as unknown as { summary: Summary[] }).summary : [];
 const faults: FaultRow[] = done ? (bench as unknown as { faults: FaultRow[] }).faults : [];
 const modes = ["rules", "llm", "hybrid"];
-const modeName: Record<string, string> = { rules: "Rules only", llm: "Claude only", hybrid: "Hybrid" };
-const cell = (mode: string, split: string) => summary.find((s) => s.mode === mode && s.split === split);
+const modeName: Record<string, string> = { rules: "Rules only", llm: "AI model only", hybrid: "Nabd (rules + AI)" };
+const total = (m: string) => {
+  const rows = summary.filter((s) => s.mode === m);
+  return { ok: rows.reduce((a, r) => a + r.ok, 0), n: rows.reduce((a, r) => a + r.total, 0), unsafe: rows.reduce((a, r) => a + r.unsafe, 0), calls: rows.reduce((a, r) => a + r.llmCalls, 0) };
+};
+const held = (m: string) => summary.find((s) => s.mode === m && s.split === "heldout");
+const hybrid = total("hybrid");
 
-const steps = [
-  ["Detect", "The lab's own health check fails: an HTTP call from inside the cluster, rollout state, restarts."],
-  ["Evidence", "Pods, events, logs, services, and the names of ConfigMap and Secret keys. Never secret values."],
-  ["Diagnose", "Rules first. Claude only when the rules find nothing, and its answer must cite the evidence."],
-  ["Formulary check", "Is the fix one of the five actions, in the allowed namespace, within bounds?"],
-  ["Countersign", "Changes to configuration or networking wait for a human to approve."],
-  ["Dry-run", "The Kubernetes API server validates the exact change without applying it."],
-  ["Apply", "The previous state is journaled to disk first, so an interruption can be undone."],
-  ["Verify", "The independent health check must pass. If not, Nabd rolls its change back and refers you."],
-];
-const warnings = [
-  ["Closed formulary", "Five actions, defined in code. The model picks one; it never writes a kubectl command. Secrets, quotas, namespaces and nodes are not stocked at all."],
-  ["Countersignature", "Scaling, rolling back and restarting run on their own. Editing a Service or a ConfigMap waits for a person."],
-  ["Evidence over instructions", "Logs are written by workloads, so they are treated as untrusted. Any value Claude proposes, a replica count, a selector, a port, must match what the cluster itself shows."],
-  ["Nothing half-applied", "The before-state is written to a journal before every change. Ctrl+C, a crash or a power cut is undone, immediately or on the next run."],
-  ["One failure, one treatment", "Several symptoms of one fault are grouped into a single incident, and only one Nabd run may act on a namespace at a time."],
-  ["Knows when to refer", "A missing Secret, an admin quota, or a dependency outside the cluster is handed to a human with the diagnosis. Nabd never retries the same fix twice."],
+const plain: Record<string, string> = {
+  "dev-01-image-typo": "Typo in the app's version number",
+  "dev-02-configmap-key-typo": "Typo in the name of a setting",
+  "dev-03-oom": "Memory limit set too low",
+  "dev-04-liveness-port": "Health check pointed at the wrong door",
+  "dev-05-readiness-path": "Health check asks for a page that doesn't exist",
+  "dev-06-selector-mismatch": "Traffic sent to a label nobody has",
+  "dev-07-cpu-request": "Asked for 64 processors instead of a tiny slice",
+  "dev-08-missing-secret": "A password was deleted",
+  "dev-09-scaled-to-zero": "The app was switched off",
+  "ho-01-target-port": "Traffic sent to the wrong door",
+  "ho-02-bad-command": "Typo in the start command",
+  "ho-03-node-selector": "Asked for a kind of server that doesn't exist",
+  "ho-04-quota": "An admin limit blocks new copies",
+  "ho-05-double-fault": "Two different faults at once",
+};
+const cell = (r?: { ok: boolean; outcome: string }) =>
+  !r ? "–" : r.ok ? (r.outcome === "resolved" ? "Fixed" : "Handed to a human") : "Missed";
+
+const glossary = [
+  ["Kubernetes", "The system most cloud apps run on. It keeps many copies of an app running across many servers and restarts them when they crash."],
+  ["Pod", "One running copy of an app."],
+  ["Deployment", "The instruction “keep N copies of this app running, with this version and these settings”."],
+  ["Service", "The stable address other apps and users call. It forwards traffic to the pods that carry the right label."],
+  ["Rollback", "Going back to the last version that worked."],
+  ["ConfigMap and Secret", "Where an app's settings and passwords are kept, outside the app itself."],
+  ["Dry-run", "Asking Kubernetes “would this change be accepted?” without making it."],
+  ["Held-out test", "Problems kept hidden while building, used only at the end, to prove it handles cases it was not built for."],
 ];
 ---
-<Base title="Nabd · Kubernetes recovery with a closed formulary" description="Nabd (نبض) diagnoses failing Kubernetes workloads and treats them with five pre-approved actions, behind a policy gate, a dry-run and an automatic rollback." page="home">
+<Base title="Nabd · Safe, automatic recovery for Kubernetes apps" description="Nabd (نبض) is an AI agent that finds out why a Kubernetes app broke and fixes it with a short list of pre-approved actions, asking a human whenever a fix is not safe." page="home">
   <main>
     <section class="hero wrap">
       <div class="pitch">
-        <h1>It can only dispense what’s on the formulary.</h1>
+        <h1>When an app breaks, Nabd finds out why and fixes it safely.</h1>
         <p class="lede">
-          Nabd <span class="ar" lang="ar">نبض</span> diagnoses failing Kubernetes workloads and treats them with five
-          pre-approved actions. Anything that edits configuration waits for a human signature, and anything it cannot treat
-          safely is referred to a human.
+          Nabd <span class="ar" lang="ar">نبض</span> is an AI agent for Kubernetes, the system most cloud apps run on. It investigates
+          like an engineer, fixes only with a short list of pre-approved actions, and asks a human whenever a fix isn't safe.
         </p>
         <div class="ctas">
           <a class="btn" href={`${base}/demo/`}>
-            Open the live demo
+            Try it in your browser
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11m-4-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </a>
-          <a class="btn ghost" href="#results">See the results</a>
+          <a class="btn ghost" href="#problem">What problem does it solve?</a>
         </div>
       </div>
       <div class="counter">
         <div class="tryline">
-          <span>Try a fault</span>
+          <span>Break something</span>
           <div class="chips" role="group" aria-label="Faults">
-            <button class="chip" type="button" data-fault="dev-01-image-typo">Bad image tag</button>
-            <button class="chip" type="button" data-fault="dev-09-scaled-to-zero">Scaled to zero</button>
-            <button class="chip" type="button" data-fault="dev-06-selector-mismatch">Service points nowhere</button>
-            <button class="chip" type="button" data-fault="dev-08-missing-secret">Secret deleted</button>
+            <button class="chip" type="button" data-fault="dev-01-image-typo">Typo in the version</button>
+            <button class="chip" type="button" data-fault="dev-09-scaled-to-zero">App switched off</button>
+            <button class="chip" type="button" data-fault="dev-06-selector-mismatch">Traffic sent nowhere</button>
+            <button class="chip" type="button" data-fault="dev-08-missing-secret">Password deleted</button>
           </div>
         </div>
         <Label id="hero-rx" />
-        <p class="note">Nabd’s real rules running against a simulated copy of the lab, in your browser.</p>
+        <p class="note">Nabd's real rules, running on a simulated copy of our test system. Each line is a step it takes.</p>
       </div>
     </section>
 
-    <section class="formulary wrap" aria-labelledby="formulary-h">
-      <h2 id="formulary-h" class="visually-hidden">The formulary</h2>
-      <ul>
-        {FORMULARY.map((f) => (
-          <li>
-            <code>{f.action}</code>
-            <span class={`class ${f.risk}`}>{f.risk === "low" ? "Automatic" : "Countersign"}</span>
-          </li>
-        ))}
-        <li class="none"><span>Secrets · quotas · namespaces · nodes</span><span class="class none">Not stocked</span></li>
-      </ul>
+    <section id="problem" class="problem wrap" aria-labelledby="problem-h">
+      <h2 id="problem-h">Apps rarely break in dramatic ways. They break in small, boring ones.</h2>
+      <ol class="story">
+        <li>
+          <h3>A small change slips in</h3>
+          <p>A typo in a version number. A wrong port. A setting renamed. A password deleted by mistake.</p>
+        </li>
+        <li>
+          <h3>The app goes down</h3>
+          <p>Users see errors. Kubernetes restarts it again and again, but restarting can't fix a wrong setting.</p>
+        </li>
+        <li>
+          <h3>Someone has to dig</h3>
+          <p>An engineer gets woken up, reads logs and events, finds the one line that's wrong, and fixes it carefully, while users wait.</p>
+        </li>
+      </ol>
+      <div class="why">
+        <h3>So why not let an AI fix it?</h3>
+        <p>
+          Because an AI that can run any command can also delete data, expose passwords, or make things worse with a confident guess.
+          Finding the fix isn't the hard part. <strong>Trusting the fixer is.</strong>
+        </p>
+      </div>
     </section>
 
-    <section id="how" class="how wrap">
+    <section class="answer wrap" aria-labelledby="answer-h">
       <div class="head">
-        <h2>How a fault gets treated</h2>
-        <p>The same eight steps every time, written out in the log as they happen. Steps four to six are where safety decides, not the model.</p>
+        <h2 id="answer-h">Nabd works like a pharmacist with a short list.</h2>
+        <p>A pharmacist can only hand out what's on the approved list, and some medicines need a doctor's signature. Nabd is built the same way.</p>
+      </div>
+      <div class="rules3">
+        <div>
+          <h3><span class="dot ok"></span>Does on its own</h3>
+          <ul>
+            <li>Go back to the last version that worked</li>
+            <li>Bring back the right number of copies</li>
+            <li>Restart the app to pick up a corrected setting</li>
+          </ul>
+        </div>
+        <div>
+          <h3><span class="dot warn"></span>Asks you first</h3>
+          <ul>
+            <li>Change where traffic is sent</li>
+            <li>Fix the name of a setting</li>
+          </ul>
+        </div>
+        <div>
+          <h3><span class="dot no"></span>Never does</h3>
+          <ul>
+            <li>Delete anything</li>
+            <li>Read, guess or invent passwords</li>
+            <li>Touch anything outside its own area</li>
+            <li>Retry the same fix again and again</li>
+          </ul>
+        </div>
+      </div>
+      <p class="after">
+        If something isn't on the list, Nabd stops and hands it to a human with everything it found. Every change is tested with a
+        dry-run first, checked afterwards, and undone automatically if it didn't help.
+      </p>
+    </section>
+
+    <section class="incident wrap" aria-labelledby="incident-h">
+      <div class="head">
+        <h2 id="incident-h">One real incident, start to finish</h2>
+        <p>From a live run on our test cluster. Nabd writes a report like this after every incident.</p>
+      </div>
+      <ol class="case">
+        <li><span class="t">0 s</span><div><h3>The website stops answering</h3><p>The health check gets “connection refused” from the web app.</p></div></li>
+        <li><span class="t">4 s</span><div><h3>Nabd finds the cause</h3><p>The address in front of the app looks for the label <code>frontend</code>, but the app is labelled <code>web</code>. Nobody receives the traffic.</p></div></li>
+        <li><span class="t">4 s</span><div><h3>It proposes the fix and asks</h3><p>“Point it back to <code>web</code>, the label it had before.” Changing traffic needs a human, so it waits.</p></div></li>
+        <li><span class="t">76 s</span><div><h3>A human approves</h3><p>The fix is tested with a dry-run, applied, and checked.</p></div></li>
+        <li class="end"><span class="t">77 s</span><div><h3>Healthy again</h3><p>Every check passes. Nabd's own work took about five seconds; the rest was waiting for the human.</p></div></li>
+      </ol>
+      <p class="after"><a href={`${repo}/blob/main/reports/20261030-190908-service-web.md`}>Read the full incident report</a></p>
+    </section>
+
+    <section id="how" class="how wrap" aria-labelledby="how-h">
+      <div class="head">
+        <h2 id="how-h">How Nabd works</h2>
+        <p>The same five steps every time. Step four is where safety decides, not the AI.</p>
       </div>
       <ol>
-        {steps.map(([name, text], i) => (
-          <li class={i >= 3 && i <= 5 ? "gate" : ""}>
-            <span class="n">{i + 1}</span>
-            <h3>{name}</h3>
-            <p>{text}</p>
-          </li>
-        ))}
+        <li><span class="n">1</span><h3>Notice</h3><p>An independent health check sees the app failing.</p></li>
+        <li><span class="n">2</span><h3>Investigate</h3><p>It reads what Kubernetes knows: errors, logs, events, settings. Never password values.</p></li>
+        <li><span class="n">3</span><h3>Diagnose</h3><p>Proven rules first. An AI model (Claude) only for problems the rules don't recognise.</p></li>
+        <li class="gate"><span class="n">4</span><h3>Safety checks</h3><p>Is the fix on the list? Does it need a human? Does a dry-run accept it? Does the evidence support it?</p></li>
+        <li><span class="n">5</span><h3>Fix and verify</h3><p>Apply, re-check, and undo if it didn't work. Or hand over to a human.</p></li>
       </ol>
     </section>
 
-    <section class="leaflet wrap" aria-labelledby="warn-h">
-      <h2 id="warn-h">Warnings and precautions</h2>
+    <section id="results" class="results wrap" aria-labelledby="results-h">
+      <div class="head">
+        <h2 id="results-h">Does it actually work?</h2>
+        <p>
+          We broke our test system in 14 different ways and let Nabd handle each one alone. Five of them were kept secret while
+          building it, to prove it handles problems it was never designed for.
+        </p>
+      </div>
+      {done ? (
+        <>
+          <p class="verdict-line">
+            Nabd handled <b>{hybrid.ok} of {hybrid.n}</b>, made <b>{hybrid.unsafe} unsafe changes</b>, and needed the AI model only <b>{hybrid.calls} times</b>.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th scope="col">Version</th><th scope="col">All 14 faults</th><th scope="col">The 5 secret ones</th><th scope="col">Unsafe changes</th><th scope="col">AI calls</th></tr>
+              </thead>
+              <tbody>
+                {modes.map((m) => {
+                  const t = total(m);
+                  const h = held(m);
+                  return (
+                    <tr class={m === "hybrid" ? "best" : ""}>
+                      <th scope="row">{modeName[m]}</th>
+                      <td>{t.ok} / {t.n}</td>
+                      <td>{h ? `${h.ok} / ${h.total}` : "–"}</td>
+                      <td>{t.unsafe}</td>
+                      <td>{t.calls}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <ul class="reading">
+            <li><b>Rules alone</b> are fast and reliable on problems they know, but missed one of the secret faults.</li>
+            <li><b>The AI model alone</b> handled every secret fault, but stumbled twice on ordinary ones: it fixed a setting and forgot to restart the app, and once it was too cautious to act.</li>
+            <li><b>Nabd combines them:</b> rules first, the AI only when the rules have no answer. It handled all 14, and never made an unsafe change.</li>
+          </ul>
+          <details>
+            <summary>Every fault, in plain words</summary>
+            <div class="table-wrap">
+              <table class="per-fault">
+                <thead><tr><th scope="col">What broke</th><th scope="col">Right answer</th>{modes.map((m) => <th scope="col">{modeName[m]}</th>)}</tr></thead>
+                <tbody>
+                  {faults.map((f) => (
+                    <tr>
+                      <th scope="row">{plain[f.fault] ?? f.fault}{f.split === "heldout" && <span class="secret">secret</span>}</th>
+                      <td>{f.expected === "fix" ? "Fix it" : "Hand to a human"}</td>
+                      {modes.map((m) => {
+                        const r = f.modes[m];
+                        return <td class={r ? (r.ok ? "pass" : "miss") : ""}>{cell(r)}</td>;
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+          <p class="fine">“Handled” means fixed and confirmed by the health check, or correctly handed to a human without changing anything. Raw data: <a href={`${repo}/tree/main/results`}>results/</a>.</p>
+        </>
+      ) : (
+        <p class="fine">The benchmark is running. Results appear here when it finishes.</p>
+      )}
+    </section>
+
+    <section class="glossary wrap" aria-labelledby="glossary-h">
+      <h2 id="glossary-h">Words you might not know</h2>
       <dl>
-        {warnings.map(([t, d]) => (
+        {glossary.map(([t, d]) => (
           <div><dt>{t}</dt><dd>{d}</dd></div>
         ))}
       </dl>
     </section>
 
-    <section id="results" class="results wrap" aria-labelledby="results-h">
-      <div class="head">
-        <h2 id="results-h">Measured on faults it was never tuned on</h2>
-        <p>
-          A local kind cluster, 14 reproducible faults: 9 used while building, 5 held out until the final run. Each run resets the
-          lab, injects one fault, lets Nabd work, and scores it with the independent health check.
-        </p>
-      </div>
-      {done ? (
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th scope="col">Mode</th><th scope="col">Dev faults handled</th><th scope="col">Held-out handled</th><th scope="col">Avg. recovery</th><th scope="col">Unsafe actions</th><th scope="col">LLM calls</th></tr>
-            </thead>
-            <tbody>
-              {modes.map((m) => {
-                const d = cell(m, "dev");
-                const h = cell(m, "heldout");
-                const secs = [d, h].flatMap((x) => (x && x.avgSeconds != null ? [x.avgSeconds] : []));
-                return (
-                  <tr>
-                    <th scope="row">{modeName[m]}</th>
-                    <td>{d ? `${d.ok} / ${d.total}` : "–"}</td>
-                    <td>{h ? `${h.ok} / ${h.total}` : "–"}</td>
-                    <td>{secs.length ? `${(secs.reduce((a, b) => a + b, 0) / secs.length).toFixed(1)} s` : "–"}</td>
-                    <td>{(d?.unsafe ?? 0) + (h?.unsafe ?? 0)}</td>
-                    <td>{(d?.llmCalls ?? 0) + (h?.llmCalls ?? 0)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <details>
-            <summary>Every fault, every mode</summary>
-            <table class="per-fault">
-              <thead><tr><th scope="col">Fault</th><th scope="col">Expected</th>{modes.map((m) => <th scope="col">{modeName[m]}</th>)}</tr></thead>
-              <tbody>
-                {faults.map((f) => (
-                  <tr>
-                    <th scope="row"><code>{f.fault}</code></th>
-                    <td>{f.expected === "fix" ? "fix" : "refer"}</td>
-                    {modes.map((m) => {
-                      const r = f.modes[m];
-                      return <td class={r ? (r.ok ? "pass" : "miss") : ""}>{r ? `${r.ok ? "handled" : "missed"} · ${r.outcome}` : "–"}</td>;
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </details>
-        </div>
-      ) : (
-        <div class="pending">
-          <p><strong>The full benchmark is running.</strong> Results appear here as soon as it finishes; nothing on this page is estimated.</p>
-        </div>
-      )}
-      <ul class="facts">
-        <li><b>9 / 9</b> dev faults diagnosed correctly by the rules alone</li>
-        <li><b>26</b> offline tests for the policy gate, injection guard, journal and grouping</li>
-        <li><b>“Handled”</b> means fixed and verified, or correctly referred to a human without touching anything</li>
-      </ul>
-    </section>
-
     <section class="limits wrap" aria-labelledby="limits-h">
-      <h2 id="limits-h">Known limits</h2>
+      <h2 id="limits-h">Honest limits</h2>
       <ul>
-        <li>Tested in a local three-node kind cluster with three services, not in production.</li>
-        <li>The browser demo is a simulation of that lab running Nabd’s rules engine. Claude mode needs an API key and runs from the command line.</li>
-        <li>Faults that only show after probes fail, like a wrong liveness port, take about a minute and a half to appear.</li>
-        <li>Spotting a cause outside the cluster is a pattern match on logs, not a dependency map.</li>
+        <li>Tested on a small test system (three servers, three apps), not yet in a real company.</li>
+        <li>The browser demo is a simulation that runs Nabd's rules. The AI part runs from the command line with an API key.</li>
+        <li>Some faults take about a minute and a half to show up, because Kubernetes has to fail its health checks first.</li>
       </ul>
     </section>
 
     <section class="close wrap">
-      <h2>Break the lab yourself.</h2>
-      <p>Fourteen faults, a kubectl prompt, and Nabd one button away. No cluster to install.</p>
-      <a class="btn" href={`${base}/demo/`}>Open the live demo</a>
+      <h2>Break it yourself.</h2>
+      <p>Pick a fault, look around like an engineer, and watch Nabd treat it. Nothing to install.</p>
+      <a class="btn" href={`${base}/demo/`}>Try it in your browser</a>
     </section>
   </main>
 </Base>
@@ -210,9 +290,9 @@ const warnings = [
 </script>
 
 <style>
-  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .hero { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr); gap: clamp(2rem, 5vw, 4.5rem); align-items: start; padding-block: clamp(2rem, 5vw, 4.5rem) 2.5rem; }
+  .hero { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr); gap: clamp(2rem, 5vw, 4.5rem); align-items: start; padding-block: clamp(2rem, 5vw, 4.5rem) 2rem; }
   .pitch { padding-top: clamp(0rem, 2vw, 1.5rem); }
+  .pitch h1 { font-size: clamp(2.4rem, 1.4rem + 3.6vw, 4.4rem); }
   .lede { margin-top: 1.4rem; font-size: clamp(1.1rem, 1rem + 0.4vw, 1.3rem); max-width: 34em; color: var(--ink-2); }
   .lede .ar { color: var(--green-deep); }
   .ctas { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 2rem; }
@@ -221,63 +301,83 @@ const warnings = [
   .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
   .note { margin-top: 0.9rem; font-size: 0.88rem; color: var(--ink-2); }
 
-  .formulary ul { list-style: none; margin: 0; padding: 1rem 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.6rem; border-block: 1px solid var(--rule); }
-  .formulary li { display: inline-flex; align-items: center; gap: 0.55rem; padding: 0.35rem 0; }
-  .formulary code { font-size: 0.86rem; }
-  .class { font: 600 0.68rem/1 var(--mono); text-transform: uppercase; letter-spacing: 0.08em; padding: 0.3rem 0.45rem; border-radius: 5px; background: var(--ground-deep); color: var(--green-deep); }
-  .class.medium { background: var(--warn-paper); color: var(--warn); }
-  .class.none { background: transparent; border: 1px solid var(--rule); color: var(--ink-2); }
-  .formulary li.none span:first-child { color: var(--ink-2); font-size: 0.92rem; }
-
-  .head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem 3rem; align-items: end; margin-bottom: 2.4rem; }
+  .head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem 3rem; align-items: end; margin-bottom: 2.2rem; }
   .head p { color: var(--ink-2); max-width: 36em; }
-  .how { padding-top: clamp(4.5rem, 9vw, 7.5rem); }
-  .how ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 2px solid var(--ink); }
-  .how li { padding: 1.3rem 1.3rem 1.6rem 0; border-bottom: 1px solid var(--rule); }
-  .how li:not(:nth-child(4n)) { border-right: 1px solid var(--rule); }
-  .how li:not(:nth-child(4n + 1)) { padding-left: 1.3rem; }
+  section.wrap + section.wrap { margin-top: clamp(4.5rem, 9vw, 7rem); }
+
+  .problem h2 { max-width: 20em; }
+  .story { list-style: none; padding: 0; margin: 2.2rem 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 2px solid var(--ink); counter-reset: s; }
+  .story li { padding: 1.4rem 1.6rem 1.6rem 0; counter-increment: s; }
+  .story li + li { padding-left: 1.6rem; border-left: 1px solid var(--rule); }
+  .story h3::before { content: counter(s) ". "; color: var(--green-deep); }
+  .story p { margin-top: 0.5rem; color: var(--ink-2); }
+  .why { margin-top: 2rem; background: var(--paper); border-radius: 18px; padding: clamp(1.4rem, 3.5vw, 2.2rem); box-shadow: var(--shadow); max-width: 52rem; }
+  .why p { margin-top: 0.6rem; color: var(--ink-2); font-size: 1.08rem; }
+  .why strong { color: var(--ink); }
+
+  .rules3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+  .rules3 > div { background: var(--paper); border-radius: 16px; padding: 1.3rem 1.4rem; box-shadow: var(--shadow); }
+  .rules3 h3 { display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.8rem; }
+  .rules3 ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.5rem; color: var(--ink-2); }
+  .dot { width: 0.8rem; height: 0.8rem; border-radius: 50%; display: inline-block; flex: none; }
+  .dot.ok { background: var(--green); }
+  .dot.warn { background: #e3a21b; }
+  .dot.no { background: var(--bad); }
+  .after { margin-top: 1.4rem; color: var(--ink-2); max-width: 48em; }
+
+  .case { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; max-width: 56rem; }
+  .case li { display: grid; grid-template-columns: 4.5rem 1fr; gap: 1.2rem; align-items: start; background: var(--paper); border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); }
+  .case .t { font: 600 0.9rem/1.6 var(--mono); color: var(--green-deep); }
+  .case p { margin-top: 0.3rem; color: var(--ink-2); }
+  .case li.end { background: var(--green-light); box-shadow: none; }
+
+  .how ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 2px solid var(--ink); }
+  .how li { padding: 1.3rem 1.2rem 1.5rem; border-right: 1px solid var(--rule); }
+  .how li:first-child { padding-left: 0; }
+  .how li:last-child { border-right: 0; }
   .how .n { font: 600 0.8rem/1 var(--mono); color: var(--ink-2); }
   .how h3 { margin: 0.6rem 0 0.45rem; }
   .how p { font-size: 0.95rem; color: var(--ink-2); }
-  .how li.gate { background: var(--paper); }
+  .how li.gate { background: var(--paper); padding-left: 1.2rem; }
   .how li.gate .n { color: var(--green-deep); }
 
-  .leaflet { margin-top: clamp(4.5rem, 9vw, 7.5rem); display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr); gap: 2rem 3rem; background: var(--paper); border-radius: 18px; padding: clamp(1.6rem, 4vw, 3.2rem); box-shadow: var(--shadow); }
-  .leaflet dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.6rem 2.4rem; }
-  .leaflet dt { font-weight: 760; font-size: 1.08rem; margin-bottom: 0.35rem; }
-  .leaflet dd { margin: 0; color: var(--ink-2); font-size: 0.97rem; }
-
-  .results { padding-top: clamp(4.5rem, 9vw, 7.5rem); }
+  .verdict-line { font-size: clamp(1.2rem, 1rem + 0.8vw, 1.6rem); max-width: 34em; margin-bottom: 1.6rem; line-height: 1.4; }
+  .verdict-line b { color: var(--green-deep); }
   .table-wrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 0.98rem; }
-  th, td { text-align: left; padding: 0.85rem 1rem 0.85rem 0; border-bottom: 1px solid var(--rule); white-space: nowrap; }
-  thead th { font: 600 0.72rem/1.2 var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); border-bottom: 2px solid var(--ink); }
+  th, td { text-align: left; padding: 0.85rem 1rem 0.85rem 0; border-bottom: 1px solid var(--rule); }
+  thead th { font: 600 0.72rem/1.2 var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); border-bottom: 2px solid var(--ink); white-space: nowrap; }
   tbody th { font-weight: 720; }
+  tr.best th, tr.best td { color: var(--green-deep); font-weight: 760; }
   td.pass { color: var(--green-deep); }
-  td.miss { color: var(--warn); font-weight: 600; }
-  details { margin-top: 1.4rem; }
+  td.miss { color: var(--warn); font-weight: 700; }
+  .secret { margin-left: 0.5rem; font: 600 0.66rem/1 var(--mono); text-transform: uppercase; letter-spacing: 0.08em; padding: 0.2rem 0.4rem; border-radius: 5px; background: var(--ground-deep); color: var(--green-deep); vertical-align: 0.15em; }
+  .reading { margin: 1.8rem 0 0; padding-left: 1.1rem; display: grid; gap: 0.6rem; max-width: 52em; color: var(--ink-2); }
+  .reading b { color: var(--ink); }
+  details { margin-top: 1.6rem; }
   summary { cursor: pointer; font-weight: 700; }
-  .per-fault { margin-top: 1rem; font-size: 0.9rem; }
-  .pending { background: var(--paper); border: 2px dashed var(--rule); border-radius: 14px; padding: 1.6rem; max-width: 46rem; }
-  .pending p { color: var(--ink-2); }
-  .facts { list-style: none; padding: 0; margin: 2.2rem 0 0; display: flex; flex-wrap: wrap; gap: 1rem 2.6rem; color: var(--ink-2); }
-  .facts b { color: var(--ink); font-size: 1.15rem; margin-right: 0.3rem; }
+  .per-fault { margin-top: 1rem; font-size: 0.92rem; }
+  .fine { margin-top: 1.2rem; color: var(--ink-2); font-size: 0.9rem; }
 
-  .limits { padding-top: clamp(4.5rem, 9vw, 7.5rem); display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr); gap: 1rem 3rem; }
-  .limits ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.7rem; color: var(--ink-2); }
+  .glossary dl { margin: 1.6rem 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem 2.6rem; }
+  .glossary dt { font-weight: 760; }
+  .glossary dd { margin: 0.25rem 0 0; color: var(--ink-2); }
 
-  .close { margin-top: clamp(4.5rem, 9vw, 7.5rem); text-align: center; display: grid; justify-items: center; gap: 1rem; padding: clamp(2.5rem, 6vw, 4.5rem) 1rem; background: var(--green-light); border-radius: 22px; }
+  .limits ul { margin: 1.2rem 0 0; padding-left: 1.1rem; display: grid; gap: 0.6rem; color: var(--ink-2); max-width: 52em; }
+
+  .close { text-align: center; display: grid; justify-items: center; gap: 1rem; padding: clamp(2.5rem, 6vw, 4.5rem) 1rem; background: var(--green-light); border-radius: 22px; }
   .close p { color: var(--ink-2); max-width: 32em; margin-bottom: 0.6rem; }
 
   @media (max-width: 960px) {
-    .hero, .head, .leaflet, .limits { grid-template-columns: 1fr; }
-    .how ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .how li:nth-child(n) { border-right: 0; padding-left: 0; }
-    .how li:nth-child(odd) { border-right: 1px solid var(--rule); }
-    .how li:nth-child(even) { padding-left: 1.3rem; }
+    .hero, .head { grid-template-columns: 1fr; }
+    .story, .rules3 { grid-template-columns: 1fr; }
+    .story li, .story li + li { padding: 1.2rem 0; border-left: 0; border-bottom: 1px solid var(--rule); }
+    .how ol { grid-template-columns: 1fr; }
+    .how li, .how li:first-child { padding: 1.1rem 0; border-right: 0; border-bottom: 1px solid var(--rule); }
+    .how li.gate { padding-left: 1rem; }
   }
-  @media (max-width: 560px) {
-    .how ol, .leaflet dl { grid-template-columns: 1fr; }
-    .how li:nth-child(n) { border-right: 0; padding-left: 0; }
+  @media (max-width: 640px) {
+    .glossary dl { grid-template-columns: 1fr; }
+    .case li { grid-template-columns: 3.4rem 1fr; gap: 0.8rem; }
   }
 </style>
