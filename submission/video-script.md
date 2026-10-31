@@ -4,6 +4,9 @@ Record the screen at 1920×1080 with your voice over it. Browser zoom 125%, book
 notifications off. Read the "Say" column slowly; each row is about the length shown.
 Upload to YouTube as **Unlisted**. The video must be between 3:00 and 4:00.
 
+**How it is built (a mentor's advice):** open with the problems and say they happen all the time,
+then introduce yourself in one breath, then show the solution you came up with.
+
 Tabs to open before you start, in this order:
 
 1. https://nabd.duraym.com (home, scrolled to the top)
@@ -14,9 +17,9 @@ Tabs to open before you start, in this order:
 
 | Time | Screen | Say |
 |---|---|---|
-| 0:00–0:25 | Home page. The card on the right is fixing "Typo in the version" by itself. | **Introduce yourself first.** Hi, I'm Muath. I trained in DevOps at Tahakom, and now I'm a cloud and customer engineering intern at CNTXT. When an app breaks at three in the morning, someone gets woken up to find one wrong line. I built Nabd, an AI agent that finds out why, and fixes it safely. |
-| 0:25–0:45 | Scroll to "Apps rarely break in dramatic ways" and "So why not let an AI fix it?" | Most outages start with something small: a typo in a version, a wrong port, a deleted password. Restarting can't fix a wrong setting. An AI could fix it, but an AI that can run any command can also delete data. Finding the fix isn't the hard part. Trusting the fixer is. |
-| 0:45–1:00 | Scroll to the pharmacist section (three columns). | So Nabd works like a pharmacist with a short list. Three safe fixes it does alone. Two it asks you about first. And things it never does: delete anything, read passwords, or touch anything outside its area. |
+| 0:00–0:28 | Home page, scrolled to "Apps rarely break in dramatic ways" and "So why not let an AI fix it?" | **Start with the problems.** Every engineering team knows this night. An app goes down because of something small: a typo in a version, a wrong port, a deleted password. It happens all the time. A restart can't fix a wrong setting, so someone gets woken up to find the one wrong line. An AI could do that work, but an AI that can run any command can also delete data. Finding the fix isn't the hard part. Trusting the fixer is. |
+| 0:28–0:45 | Scroll back to the top. The card on the right fixes "Typo in the version" by itself. | **Now introduce yourself, then the solution.** That's the problem I took on. I'm Muath. I trained in DevOps at Tahakom, and I'm a cloud and customer engineering intern at CNTXT. For Challenge 1 I built Nabd, an AI agent that finds out why an app broke, and fixes it safely. |
+| 0:45–1:00 | Scroll to the pharmacist section (three columns). | Nabd works like a pharmacist with a short list. Three safe fixes it does alone. Two it asks you about first. And things it never does: delete anything, read passwords, or touch anything outside its area. |
 | 1:00–1:12 | Demo tab. Step 1 "Break it": click **Traffic sent to a label nobody has**. | Let me break something. I'll send the website's traffic to a label that no app has. |
 | 1:12–1:25 | Step 2 "Look around": click a suggested command or two. | This is what an engineer would see: the pods are running, but nobody answers. |
 | 1:25–1:50 | Step 3 "Let Nabd fix it": watch the card fill in, then click **Approve**. | Nabd reads the evidence, finds that the address points to the wrong label, and proposes pointing it back. Changing traffic needs a human, so it stops and asks me. I approve. It runs a dry-run first, applies the fix, and checks it. |
@@ -26,6 +29,12 @@ Tabs to open before you start, in this order:
 | 2:40–3:05 | Home page, "If Git runs your cluster, Nabd fixes Git." If you ran the live lab: show the pull request, click Merge, then Argo CD turning Healthy. | Teams like HUMAIN's deploy with GitOps, using Argo CD and Flux. There, a fix made on the cluster is undone at the next sync. So when Nabd sees that Argo CD deploys the app, it opens a pull request that reverts the commit that broke it. The merge is the approval, and then Nabd checks the app is healthy. |
 | 3:05–3:35 | **The What's next page.** Scroll slowly past the three groups, so the status pills are readable. | **Say this part slowly. It is the most important line of the end.** Here is what Nabd still needs, and where each item stands. GitOps mode is built and tested with real Git repositories, but not yet on a live Argo CD. Different rules per environment, so production only changes through a pull request, is designed, not built. AI model servers like vLLM, silent failures, and existing alerts are ideas. I know about all of these. They're next steps, not claims, and each one is on this page with its status. |
 | 3:35–3:50 | Home page, "Break it yourself." | Nabd. It investigates like an engineer, and only does what it's allowed to. Try it yourself at nabd dot duraym dot com. Thank you. |
+
+## ليش الافتتاحية بهذا الشكل
+
+نصيحة المنتر: **ابدأ بالمشاكل وقل إنها تصير دايماً، بعدين قدّم الحل اللي طلعت به.** عشان كذا أول 28 ثانية كلها مشاكل بدون اسمك، وبعدها تقول من أنت في جملتين، وبعدها تدخل في الحل. الحكم يفهم "ليش هذا مهم" قبل ما يسمع "وش سويت".
+
+نفس الترتيب في الشرائح: الغلاف (نبض)، ثم من أنت، ثم المشكلة، ثم الحل.
 
 ## The part that matters most (3:05–3:35)
 
