@@ -14,7 +14,7 @@ Tabs to open before you start, in this order:
 
 | Time | Screen | Say |
 |---|---|---|
-| 0:00–0:25 | Home page. The card on the right is fixing "Typo in the version" by itself. | **Introduce yourself first.** Hi, I'm Muath. I trained in DevOps at Tahakom, and now I'm an intern Cloud Engineer at CNTXT. When an app breaks at three in the morning, someone gets woken up to find one wrong line. I built Nabd, an AI agent that finds out why, and fixes it safely. |
+| 0:00–0:25 | Home page. The card on the right is fixing "Typo in the version" by itself. | **Introduce yourself first.** Hi, I'm Muath. I trained in DevOps at Tahakom, and now I'm a cloud and customer engineering intern at CNTXT. When an app breaks at three in the morning, someone gets woken up to find one wrong line. I built Nabd, an AI agent that finds out why, and fixes it safely. |
 | 0:25–0:45 | Scroll to "Apps rarely break in dramatic ways" and "So why not let an AI fix it?" | Most outages start with something small: a typo in a version, a wrong port, a deleted password. Restarting can't fix a wrong setting. An AI could fix it, but an AI that can run any command can also delete data. Finding the fix isn't the hard part. Trusting the fixer is. |
 | 0:45–1:00 | Scroll to the pharmacist section (three columns). | So Nabd works like a pharmacist with a short list. Three safe fixes it does alone. Two it asks you about first. And things it never does: delete anything, read passwords, or touch anything outside its area. |
 | 1:00–1:12 | Demo tab. Step 1 "Break it": click **Traffic sent to a label nobody has**. | Let me break something. I'll send the website's traffic to a label that no app has. |

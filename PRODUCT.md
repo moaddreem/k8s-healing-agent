@@ -13,7 +13,7 @@ Astro (user chose "Framework (React/Astro)"; Astro picked because the site is mo
 ## Users
 
 - Primary: judges of the HUMAIN x Misk "Future AI Builders" hackathon, Challenge 1 "Agentic Recovery of a Failing System". They review many submissions in minutes and score task performance on unseen cases, robustness, evaluation and iteration, technical judgment, engineering quality and communication.
-- Secondary: HUMAIN engineers, mentors and recruiters looking at the builder (Muath, DevOps training at Tahakom, intern Cloud Engineer at CNTXT).
+- Secondary: HUMAIN engineers, mentors and recruiters looking at the builder (Muath, DevOps training at Tahakom, cloud and customer engineering intern at CNTXT).
 
 ## Product Purpose
 
